@@ -1,4 +1,4 @@
-import bfApi from "../config";
+import bfApi from "../../config";
 
 export default class AccountsAPI {
 	constructor() {}

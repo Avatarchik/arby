@@ -5,7 +5,7 @@ import morgan from "morgan";
 import cors from "cors";
 import { reduce, concat } from "lodash";
 
-import BettingApi from "./betfair/apis/betting";
+import BettingApi from "./betfair/apis/betting/betting";
 
 const bettingApi = new BettingApi();
 
@@ -21,28 +21,41 @@ let marketCatalogue;
 
 	// Get all event types
 	try {
-		response = await bettingApi.getEventTypes();
+		response = await bettingApi.listEventTypes();
 		eventTypes = response.data.result;
 
 		eventTypeIds = reduce(eventTypes, (arr, eT) => concat(arr, eT.eventType.id), []);
+		console.log("\n\n\n::: eventTypeIds :::");
+		console.log(eventTypeIds);
 	} catch(err) {
 		console.error(err);
 	}
 
 	// Get all events of those event types
 	try {
-		response = await bettingApi.getEvents(eventTypeIds);
+		response = await bettingApi.listEvents({
+			opFilter: {
+				typeDef: "MARKET_FILTER",
+				params: eventTypeIds
+			}
+		});
 		events = response.data.result;
 
 		eventIds = reduce(events, (arr, e) => concat(arr, e.event.id), []);
+		console.log("\n\n\n::: eventIds :::");
+		console.log(eventIds);
 	} catch(err) {
 		console.log(err);
 	}
 
 	// Get all the markets of those events...a hell of a lot of results as no limit
 	try {
-		response = await bettingApi.getMarketCatalogue(eventIds);
+		response = await bettingApi.listMarketCatalogue({
+			eventIds
+		});
 		marketCatalogue = response.data.result;
+		console.log("\n\n\n::: marketCatalogue :::");
+		console.log(marketCatalogue);
 	} catch(err) {
 		console.log(err);
 	}
