@@ -51,7 +51,10 @@ let marketCatalogue;
 	// Get all the markets of those events...a hell of a lot of results as no limit
 	try {
 		response = await bettingApi.listMarketCatalogue({
-			eventIds
+			opFilter: {
+				typeDef: "MARKET_FILTER",
+				params: eventIds
+			}
 		});
 		marketCatalogue = response.data.result;
 		console.log("\n\n\n::: marketCatalogue :::");
