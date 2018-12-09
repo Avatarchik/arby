@@ -22,8 +22,50 @@ const ValidLocales = [
     "fr"
 ];
 
+const Side = [
+    "BACK",
+    "LAY"
+];
+
+const OrderType = [
+    "LIMIT",
+    "LIMIT_ON_CLOSE"
+];
+
+const PersistenceType = [
+    "LAPSE",
+    "PERSIST",
+    "MARKET_ON_CLOSE"
+];
+
+const TimeInForce = [
+    "FILL_OR_KILL"
+];
+
+const MarketStatus = [
+    "INACTIVE",
+    "OPEN",
+    "SUSPENDED",
+    "CLOSED"
+];
+
+const MarketBettingType = [
+    "ODDS",
+    "LINE",
+    "RANGE",
+    "ASIAN_HANDICAP_DOUBLE_LINE",
+    "ASIAN_HANDICAP_SINGLE_LINE",
+    "FIXED_ODDS"
+];
+
 export {
+    MarketBettingType,
     MarketProjection,
     MarketSort,
+    MarketStatus,
+    OrderType,
+    PersistenceType,
+    Side,
+    TimeInForce,
     ValidLocales
 }

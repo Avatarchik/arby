@@ -47,7 +47,15 @@ const MARKET_FILTER = {
         "marketBettingTypes": {
             "type": "array",
             "items": {
-                "$ref": "/MarketBettingTypes"
+                "type": "string",
+                "enum": [
+                    "ODDS",
+                    "LINE",
+                    "RANGE",
+                    "ASIAN_HANDICAP_DOUBLE_LINE",
+                    "ASIAN_HANDICAP_SINGLE_LINE",
+                    "FIXED_ODDS"
+                ]
             }
         },
         "marketCountries": {
@@ -63,7 +71,7 @@ const MARKET_FILTER = {
             }
         },
         "marketStartTime": {
-            "type": "string"
+            "$ref": "/TimeRange"
         },
         "withOrders": {
             "type": "string",
@@ -76,6 +84,19 @@ const MARKET_FILTER = {
             "items": {
                 "type": "string"
             }
+        }
+    }
+};
+
+const TIME_RANGE = {
+    "id": "/TimeRange",
+    "type": "object",
+    "properties": {
+        "from": {
+            "type": "Date"
+        },
+        "to": {
+            "type": "Date"
         }
     }
 };
@@ -111,7 +132,11 @@ const MARKET_CATALOGUE = {
         "event": {
             "$ref": "/Event"
         }
-    }
+    },
+    "required": [
+        "marketId",
+        "marketName"
+    ]
 };
 
 const MARKET_BOOK = {
@@ -125,7 +150,16 @@ const MARKET_BOOK = {
             "type": "boolean"
         },
         "status": {
-            "$ref": "/MarketStatus"
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "INACTIVE",
+                    "OPEN",
+                    "SUSPENDED",
+                    "CLOSED"
+                ]
+            }
         },
         "betDelay": {
             "type": "boolean"
@@ -172,7 +206,11 @@ const MARKET_BOOK = {
         "keyLineDescription": {
             "$ref": "/KeyLineDescription"
         }
-    }
+    },
+    "required": [
+        "marketId",
+        "isMarketDataDelayed"
+    ]
 };
 
 const PLACE_INSTRUCTION = {
@@ -180,7 +218,14 @@ const PLACE_INSTRUCTION = {
     "type": "object",
     "properties": {
         "orderType": {
-            "$ref": "/OrderType"
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "LIMIT",
+                    "LIMIT_ON_CLOSE"
+                ]
+            }
         },
         "sectionId": {
             "type": "string"
@@ -189,7 +234,14 @@ const PLACE_INSTRUCTION = {
             "type": "integer"
         },
         "side": {
-            "$ref": "/Side"
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "BACK",
+                    "LAY"
+                ]
+            }
         },
         "limitOrder": {
             "$ref": "/LimitOrder"
@@ -203,12 +255,98 @@ const PLACE_INSTRUCTION = {
         "customerOrderRef": {
             "type": "string"
         }
-    }
-}
+    },
+    "required": [
+        "orderType",
+        "selectionId",
+        "side"
+    ]
+};
+
+const LIMIT_ORDER = {
+    "id": "/LimitOrder",
+    "type": "object",
+    "properties": {
+        "size": {
+            "type": "double"
+        },
+        "price": {
+            "type": "double"
+        },
+        "persistanceType": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "LAPSE",
+                    "PERSIST",
+                    "MARKET_ON_CLOSE"
+                ]
+            }
+        },
+        "timeInForce": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "FILL_OR_KILL"
+                ]
+            }
+        },
+        "minFillSize": {
+            "type": "double"
+        },
+        "betMarketType": {
+            "type": "string"
+        },
+        "betTargetSize": {
+            "type": "double"
+        }
+    },
+    "required": [
+        "size",
+        "price",
+        "persistenceType"
+    ]
+};
+
+const LIMIT_ON_CLOSE_ORDER = {
+    "id": "/LimitOnCloseOrder",
+    "type": "object",
+    "properties": {
+        "liability": {
+            "type": "double"
+        },
+        "price": {
+            "type": "double"
+        }
+    },
+    "required": [
+        "liability",
+        "price"
+    ]
+};
+
+const MARKET_ON_CLOSE_ORDER = {
+    "id": "/MarketOnCloseOrder",
+    "type": "object",
+    "properties": {
+        "liability": {
+            "type": "double"
+        }
+    },
+    "required": [
+        "liability"
+    ]
+};
 
 export default {
-    MARKET_FILTER,
-    MARKET_CATALOGUE,
+    LIMIT_ON_CLOSE_ORDER,
+    LIMIT_ORDER,
     MARKET_BOOK,
-    PLACE_INSTRUCTION
+    MARKET_CATALOGUE,
+    MARKET_FILTER,
+    MARKET_ON_CLOSE_ORDER,
+    PLACE_INSTRUCTION,
+    TIME_RANGE
 };

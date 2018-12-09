@@ -3,7 +3,7 @@ import session from "express-session";
 import bodyParser from "body-parser";
 import morgan from "morgan";
 import cors from "cors";
-import { reduce, concat } from "lodash";
+import { reduce, concat, find } from "lodash";
 
 import BettingApi from "./betfair/apis/betting/betting";
 
@@ -24,9 +24,16 @@ let marketCatalogue;
 		response = await bettingApi.listEventTypes();
 		eventTypes = response.data.result;
 
-		eventTypeIds = reduce(eventTypes, (arr, eT) => concat(arr, eT.eventType.id), []);
-		console.log("\n\n\n::: eventTypeIds :::");
+		eventTypeIds = find(eventTypes, (eT) => eT.eventType.name === "Soccer").eventType.id;
+
+		// console.log("::: eventTypes :::");
+		// console.log(eventTypes);
+		console.log("::: soccerEventId");
 		console.log(eventTypeIds);
+
+		// eventTypeIds = reduce(eventTypes, (arr, eT) => concat(arr, eT.eventType.id), []);
+		// console.log("\n\n\n::: eventTypeIds :::");
+		// console.log(eventTypeIds);
 	} catch(err) {
 		console.error(err);
 	}
@@ -36,16 +43,23 @@ let marketCatalogue;
 		response = await bettingApi.listEvents({
 			opFilter: {
 				typeDef: "MARKET_FILTER",
-				params: eventTypeIds
+				params: {
+					eventTypeIds: [
+						eventTypeIds
+					]
+				}
 			}
 		});
 		events = response.data.result;
 
+		console.log("::: events :::");
+		console.log(events);
+
 		eventIds = reduce(events, (arr, e) => concat(arr, e.event.id), []);
-		console.log("\n\n\n::: eventIds :::");
-		console.log(eventIds);
+		// console.log("\n\n\n::: eventIds :::");
+		// console.log(eventIds);
 	} catch(err) {
-		console.log(err);
+		console.error(err);
 	}
 
 	// Get all the markets of those events...a hell of a lot of results as no limit
@@ -53,15 +67,44 @@ let marketCatalogue;
 		response = await bettingApi.listMarketCatalogue({
 			opFilter: {
 				typeDef: "MARKET_FILTER",
-				params: eventIds
-			}
+				params: {
+					eventTypeIds: [
+						eventTypeIds
+					],
+					eventIds
+					// maxResults: 10
+				}
+			},
+			opProjection: [
+				"COMPETITION",
+				"EVENT"	
+			]
 		});
 		marketCatalogue = response.data.result;
 		console.log("\n\n\n::: marketCatalogue :::");
 		console.log(marketCatalogue);
 	} catch(err) {
-		console.log(err);
+		console.error(err);
 	}
+
+	// try {
+	// 	respone = await bettingApi.placeOrders({
+	// 		opMarketId: marketCatalogue[0].marketId,
+	// 		opInstructions: {
+	// 			typeDef: "PLACE_INSTRUCTION",
+	// 			params: {
+	// 				orderType: [
+	// 					"LIMIT"					// Normal order for immediate execution
+	// 				],
+	// 				side: [
+	// 					"BACK"
+	// 				]
+	// 			}
+	// 		}
+	// 	});
+	// } catch(err) {
+	// 	console.error(err);
+	// }
 })();
 
 const app = express();

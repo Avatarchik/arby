@@ -1,6 +1,6 @@
 import moment from "moment";
 import jsonschema from "jsonschema";
-import { merge, forEach } from "lodash";
+import { merge, forEach, map, reduce } from "lodash";
 
 import Betfair from "../../config";
 import Config from "./config";
@@ -12,7 +12,11 @@ export default class BettingAPI {
 		const Validator = jsonschema.Validator;
 
 		this.betfair = (this.betfair || new Betfair());
-		this.validator = new Validator();
+		this.validator = new Validator({
+			throwError: true
+		});
+
+		forEach(TypeDefinitions, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
 	}
 
 	async initAxios() {
@@ -23,35 +27,49 @@ export default class BettingAPI {
 		}
 	}
 
-	listEventTypes(params) {
-		const { opFilter, opLocale } = params;
+	async listEventTypes(params) {
+		let opFilter;
+		let opLocale;
+		let filter;
+		let locale;
 
-		let filter = ((opFilter && opFilter.params) || {});
-		let locale = (opLocale || process.env.DEFAULT_LOCALE);
+		if (params) {
+			({ opFilter, opLocale } = params);
+		}
+		filter = ((opFilter && opFilter.params) || {});
+		locale = (opLocale || process.env.DEFAULT_LOCALE);
 
-		this.validateParams(params);
+		try {
+			await this.validateParams(Config.LIST_EVENT_TYPES, params);
 
-		return this.buildRequestBody(Config.LIST_EVENT_TYPES, {
-			filter,
-			locale
-		});
+			return this.buildRequestBody(Config.LIST_EVENT_TYPES, {
+				filter,
+				locale
+			});
+		} catch(err) {
+			console.error(err);
+		}
 	}
 
-	listCompetitions(params) {
+	async listCompetitions(params) {
 		const { opFilter, opLocale } = params;
 
 		let filter = (opFilter || {});
 		let locale = (opLocale || process.env.DEFAULT_LOCALE);
 
-		this.validateParams(params);
+		try {
+			await this.validateParams(Config.LIST_COMPETITIONS, params);
 
-		return this.buildRequestBody(Config.LIST_COMPETITIONS, {
-			filter,
-			locale
-		});
+			return this.buildRequestBody(Config.LIST_COMPETITIONS, {
+				filter,
+				locale
+			});
+		} catch(err) {
+			console.error(err);
+		}
 	}
 
-	listEvents(params) {
+	async listEvents(params) {
 		const { opFilter, opLocale } = params;
 		const marketStartTime = {
 			marketStartTime: {
@@ -60,50 +78,63 @@ export default class BettingAPI {
 			}
 		};
 
-		let filter = (opFilter) ? merge(opFilter, marketStartTime) : marketStartTime;
+		let filter = (opFilter) ? merge(opFilter.params, marketStartTime) : marketStartTime;
 		let locale = (opLocale || process.env.DEFAULT_LOCALE);
 
-		this.validateParams(params);
-		
-		return this.buildRequestBody(Config.LIST_EVENTS, {
-			filter,
-			locale
-		});
+		try {
+			await this.validateParams(Config.LIST_EVENTS, params);
+
+			return this.buildRequestBody(Config.LIST_EVENTS, {
+				filter,
+				locale
+			});
+		} catch(err) {
+			console.log(err);
+		}
 	}
 
-	listMarketCatalogue(params) {
+	async listMarketCatalogue(params) {
 		const { opFilter, opProjection, opSort, opMaxResults, opLocale } = params;
 
-		let filter = (opFilter || {});
+		let filter = (opFilter && opFilter.params || {});
 		let marketProjection = (opProjection || MarketProjection);
 		let sort = (opSort || MarketSort);
 		let maxResults = (opMaxResults || 10);
 		let locale = (opLocale || process.env.DEFAULT_LOCALE);
 
-		this.validateParams(params);
+		try {
+			await this.validateParams(Config.LIST_MARKET_CATALOGUE, params);
 
-		return this.buildRequestBody(Config.LIST_MARKET_CATALOGUE, {
-			filter,
-			maxResults,
-			locale
-		});
+			return this.buildRequestBody(Config.LIST_MARKET_CATALOGUE, {
+				filter,
+				marketProjection,
+				maxResults,
+				locale
+			});
+		} catch(err) {
+			console.error(err);
+		}
 	}
 
-	listMarketTypes(params) {
+	async listMarketTypes(params) {
 		const { opFilter, opLocale } = params;
 
 		let filter = (opFilter || {});
 		let locale = (opLocale || process.env.DEFAULT_LOCALE);
 
-		this.validateParams(params);
+		try {
+			await this.validateParams(Config.LIST_MARKET_TYPES, params);
 
-		return this.buildRequestBody(Config.LIST_MARKET_TYPES, {
-			filter,
-			locale
-		});
+			return this.buildRequestBody(Config.LIST_MARKET_TYPES, {
+				filter,
+				locale
+			});
+		} catch(err) {
+			console.error(err);
+		}
 	}
 
-	listCurrentOrders(params) {
+	async listCurrentOrders(params) {
 		const { betIds, marketIds, orderProjection, customerOrderRefs, customerStrategyRefs, dateRange, orderBy, sortDir, fromRecord, recordCount } = params;
 
 		return this.api.post(process.env.BF_API_JSONRPC_ENDPOINT, {
@@ -127,6 +158,10 @@ export default class BettingAPI {
 
 	}
 
+	getApiParams(paramsPassed, paramsPoss) {
+
+	}
+
 	buildRequestBody(operation, filters) {
 		// console.log("filters: ", filters);
 		return this.api.post(process.env.BF_API_JSONRPC_ENDPOINT, {
@@ -138,14 +173,24 @@ export default class BettingAPI {
 			}
 		});
 	}
+	
+	formatValidationErrors(errors) {
+		return reduce(errors, (err, acc) => {
+			return (`${acc}, ${err.stack}`)
+		}, "");
+	}
 
-	validateParams(params) {
-		const that = this;
+	validateParams(reqName, params) {
+		let validation;
 
 		forEach(params, (value, key) => {
 			if (value.typeDef) {
-				that.validator.validate(value.params, TypeDefinitions[value.typeDef]);				
+				validation = this.validator.validate(value.params, TypeDefinitions[value.typeDef]);
+
+				if (validation.errors && validation.errors.length) {
+					throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
+				}
 			}
-		});
+		}, this);
 	}
 }
