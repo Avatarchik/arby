@@ -1,5 +1,5 @@
 export default {
-    CANCEL_ORDERS: "canelOrders",
+    CANCEL_ORDERS: "cancelOrders",
     LIST_CLEARED_ORDERS: "listClearedOrders",
     LIST_COMPETITIONS: "listCompetitions",
     LIST_COUNTRIES: "listCountries",

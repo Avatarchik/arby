@@ -1,4 +1,5 @@
 import express from "express";
+import moment from "moment";
 import session from "express-session";
 import bodyParser from "body-parser";
 import morgan from "morgan";
@@ -15,6 +16,7 @@ let eventTypeIds;
 let events;
 let eventIds;
 let marketCatalogue;
+let marketIds;
 
 (async() => {
 	await bettingApi.initAxios();
@@ -41,12 +43,13 @@ let marketCatalogue;
 	// Get all events of those event types
 	try {
 		response = await bettingApi.listEvents({
-			opFilter: {
-				typeDef: "MARKET_FILTER",
-				params: {
-					eventTypeIds: [
-						eventTypeIds
-					]
+			filter: {
+				eventTypeIds: [
+					eventTypeIds
+				],
+				marketStartTime: {
+					from: moment().startOf("day").format(),
+					to: moment().endOf("day").format()
 				}
 			}
 		});
@@ -65,27 +68,37 @@ let marketCatalogue;
 	// Get all the markets of those events...a hell of a lot of results as no limit
 	try {
 		response = await bettingApi.listMarketCatalogue({
-			opFilter: {
-				typeDef: "MARKET_FILTER",
-				params: {
-					eventTypeIds: [
-						eventTypeIds
-					],
-					eventIds
-					// maxResults: 10
-				}
+			filter: {
+				eventTypeIds: [
+					eventTypeIds
+				],
+				eventIds
 			},
-			opProjection: [
+			marketProjection: [
 				"COMPETITION",
 				"EVENT"	
-			]
+			],
+			maxResults: 10
 		});
 		marketCatalogue = response.data.result;
+		marketIds = marketCatalogue.map(market => market.marketId);
 		console.log("\n\n\n::: marketCatalogue :::");
 		console.log(marketCatalogue);
+		console.log("::: marketIds :::");
+		console.log(marketIds);
 	} catch(err) {
 		console.error(err);
 	}
+
+	// try {
+	// 	response = await bettingApi.listMarketBook({
+	// 		_marketIds: {
+	// 			params: marketIds
+	// 		}
+	// 	});
+	// } catch(err) {
+	// 	console.error(err);
+	// }
 
 	// try {
 	// 	respone = await bettingApi.placeOrders({

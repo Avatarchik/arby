@@ -1,11 +1,10 @@
-import moment from "moment";
 import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
 import Betfair from "../../config";
 import Config from "./config";
 import TypeDefinitions from "./typeDefs";
-import { MarketProjection, MarketSort } from "./enums";
+import Enums from "./enums";
 
 export default class BettingAPI {
 	constructor() {
@@ -17,6 +16,7 @@ export default class BettingAPI {
 		});
 
 		forEach(TypeDefinitions, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
+		forEach(Enums, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
 	}
 
 	async initAxios() {
@@ -28,19 +28,20 @@ export default class BettingAPI {
 	}
 
 	async listEventTypes(params) {
-		let opFilter;
-		let opLocale;
+		console.log("\n==== listEventTypes =====");
+		let _filter;
+		let _locale;
 		let filter;
 		let locale;
 
 		if (params) {
-			({ opFilter, opLocale } = params);
+			({ _filter, _locale } = params);
 		}
-		filter = ((opFilter && opFilter.params) || {});
-		locale = (opLocale || process.env.DEFAULT_LOCALE);
+		filter = ((_filter && _filter.params) || {});
+		locale = (_locale || process.env.DEFAULT_LOCALE);
 
 		try {
-			await this.validateParams(Config.LIST_EVENT_TYPES, params);
+			await this.validateParams(Config.LIST_EVENT_TYPES, params, "LIST_EVENT_TYPES");
 
 			return this.buildRequestBody(Config.LIST_EVENT_TYPES, {
 				filter,
@@ -70,19 +71,11 @@ export default class BettingAPI {
 	}
 
 	async listEvents(params) {
-		const { opFilter, opLocale } = params;
-		const marketStartTime = {
-			marketStartTime: {
-				from: moment().startOf("day").format(),
-				to: moment().endOf("day").format()
-			}
-		};
-
-		let filter = (opFilter) ? merge(opFilter.params, marketStartTime) : marketStartTime;
-		let locale = (opLocale || process.env.DEFAULT_LOCALE);
+		console.log("\n===== listEvents =====");
+		const { filter, locale } = params;
 
 		try {
-			await this.validateParams(Config.LIST_EVENTS, params);
+			await this.validateParams(Config.LIST_EVENTS, params, "LIST_EVENTS");
 
 			return this.buildRequestBody(Config.LIST_EVENTS, {
 				filter,
@@ -97,19 +90,45 @@ export default class BettingAPI {
 		const { opFilter, opProjection, opSort, opMaxResults, opLocale } = params;
 
 		let filter = (opFilter && opFilter.params || {});
-		let marketProjection = (opProjection || MarketProjection);
-		let sort = (opSort || MarketSort);
+		// let marketProjection = (opProjection || MarketProjection);
+		// let sort = (opSort || MarketSort);
 		let maxResults = (opMaxResults || 10);
 		let locale = (opLocale || process.env.DEFAULT_LOCALE);
 
 		try {
-			await this.validateParams(Config.LIST_MARKET_CATALOGUE, params);
+			await this.validateParams(Config.LIST_MARKET_CATALOGUE, params, "LIST_MARKET_CATALOGUE");
 
 			return this.buildRequestBody(Config.LIST_MARKET_CATALOGUE, {
 				filter,
-				marketProjection,
+				// marketProjection,
 				maxResults,
 				locale
+			});
+		} catch(err) {
+			console.error(err);
+		}
+	}
+
+	async listMarketBook(params) {
+		const {
+			_marketIds,
+			_priceProjection,
+			_orderProjection,
+			_matchProjection,
+			_includeOverallPosition,
+			_partitionMatchedByStrategyRef,
+			_customerStrategyRefs,
+			_currencyCode,
+			_locale,
+			_matchedSince,
+			_betIds
+		} = params;
+
+		try {
+			await this.validateParams(Config.LIST_MARKET_BOOK, params);
+
+			return this.buildRequestBody(Config.LIST_MARKET_BOOK, {
+
 			});
 		} catch(err) {
 			console.error(err);
@@ -180,17 +199,31 @@ export default class BettingAPI {
 		}, "");
 	}
 
-	validateParams(reqName, params) {
-		let validation;
+	validateParams(reqName, params = {}, topTypeDef) {
+		console.log("\n\n\n::: validateParams :::");
+		console.log(reqName);
+		console.log(params);
+		console.log(topTypeDef);
+		let validation = this.validator.validate(params, TypeDefinitions[topTypeDef]);
 
-		forEach(params, (value, key) => {
-			if (value.typeDef) {
-				validation = this.validator.validate(value.params, TypeDefinitions[value.typeDef]);
+		console.log(validation);
 
-				if (validation.errors && validation.errors.length) {
-					throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
-				}
-			}
-		}, this);
+		if (validation.errors && validation.errors.length) {
+			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
+		}
+
+		// forEach(params, (value, key) => {
+		// 	if (value.typeDef) {
+		// 		validation = this.validator.validate(value.params, TypeDefinitions[value.typeDef]);
+
+		// 		if (validation.errors && validation.errors.length) {
+		// 			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
+		// 		}
+		// 	}
+		// }, this);
+	}
+
+	checkRequiredParams(params, operation) {
+
 	}
 }

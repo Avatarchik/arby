@@ -52,7 +52,7 @@ const MARKET_FILTER = {
                     "ODDS",
                     "LINE",
                     "RANGE",
-                    "ASIAN_HANDICAP_DOUBLE_LINE",
+                    "ASIAN_HANDICAP_number_LINE",
                     "ASIAN_HANDICAP_SINGLE_LINE",
                     "FIXED_ODDS"
                 ]
@@ -118,7 +118,7 @@ const MARKET_CATALOGUE = {
             "$ref": "/MarketDescription"
         },
         "totalMatched": {
-            "type": "integer"
+            "type": "number"
         },
         "runners": {
             "$ref": "/RunnerCatalog"
@@ -137,6 +137,28 @@ const MARKET_CATALOGUE = {
         "marketId",
         "marketName"
     ]
+};
+
+const LIST_MARKET_CATALOGUE = {
+    "id": "/listMarketCatalogue",
+    "type": "object",
+    "properties": {
+        "filter": {
+            "$ref": "/MarketFilter"
+        },
+        "marketProjection": {
+            "$ref": "/MarketProjection"
+        },
+        "sort": {
+            "$ref": "/MarketSort"
+        },
+        "maxResults": {
+            "type": "number"
+        },
+        "locale": {
+            "type": "string"
+        }
+    }
 };
 
 const MARKET_BOOK = {
@@ -174,19 +196,19 @@ const MARKET_BOOK = {
             "type": "boolean"
         },
         "numberOfWinners": {
-            "type": "integer"
+            "type": "number"
         },
         "numberOfRunners": {
-            "type": "integer"
+            "type": "number"
         },
         "lastMatchTime": {
             "type": "string"
         },
         "totalMatched": {
-            "type": "integer"
+            "type": "number"
         },
         "totalAvailable": {
-            "type": "integer"
+            "type": "number"
         },
         "crossMatching": {
             "type": "boolean"
@@ -195,7 +217,7 @@ const MARKET_BOOK = {
             "type": "boolean"
         },
         "version": {
-            "type": "integer"
+            "type": "number"
         },
         "runners": {
             "type": "array",
@@ -231,7 +253,7 @@ const PLACE_INSTRUCTION = {
             "type": "string"
         },
         "handicap": {
-            "type": "integer"
+            "type": "number"
         },
         "side": {
             "type": "array",
@@ -263,15 +285,82 @@ const PLACE_INSTRUCTION = {
     ]
 };
 
+const PRICE_PROJECTION = {
+    "id": "/PriceProjection",
+    "type": "object",
+    "properties": {
+        "priceData": {
+            "type": "array",
+            "items": {
+                "$ref": "/PriceData"
+            }
+        },
+        "exBestOffersOverrides": {
+            "$ref": "/ExBestOffersOverrides"
+        }
+    }
+};
+
+const LIST_EVENT_TYPES = {
+    "id": "/listEventTypes",
+    "type": "object",
+    "properties": {
+        "filter": {
+            "$ref": "/MarketFilter"
+        },
+        "locale": {
+            "type": "string"
+        }
+    }
+};
+
+const LIST_EVENTS = {
+    "id": "/listEvents",
+    "type": "object",
+    "properties": {
+        "filter": {
+            "$ref": "/MarketFilter"
+        },
+        "locale": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "filter"
+    ]
+}
+
+const EX_BEST_OFFERS_OVERRIDES = {
+    "id": "/ExBestOffersOverrides",
+    "type": "object",
+    "properties": {
+        "bestPriceDepth": {
+            "type": "number"
+        },
+        "rollupModel": {
+            "$ref": "/RollupModel"
+        },
+        "rollupLimit": {
+            "type": "number"
+        },
+        "rollupLiabilityThreshold": {
+            "type": "number"
+        },
+        "rollupLiabilityFactor": {
+            "type": "number"
+        }
+    }
+};
+
 const LIMIT_ORDER = {
     "id": "/LimitOrder",
     "type": "object",
     "properties": {
         "size": {
-            "type": "double"
+            "type": "number"
         },
         "price": {
-            "type": "double"
+            "type": "number"
         },
         "persistanceType": {
             "type": "array",
@@ -294,13 +383,13 @@ const LIMIT_ORDER = {
             }
         },
         "minFillSize": {
-            "type": "double"
+            "type": "number"
         },
         "betMarketType": {
             "type": "string"
         },
         "betTargetSize": {
-            "type": "double"
+            "type": "number"
         }
     },
     "required": [
@@ -315,10 +404,10 @@ const LIMIT_ON_CLOSE_ORDER = {
     "type": "object",
     "properties": {
         "liability": {
-            "type": "double"
+            "type": "number"
         },
         "price": {
-            "type": "double"
+            "type": "number"
         }
     },
     "required": [
@@ -332,7 +421,7 @@ const MARKET_ON_CLOSE_ORDER = {
     "type": "object",
     "properties": {
         "liability": {
-            "type": "double"
+            "type": "number"
         }
     },
     "required": [
@@ -348,5 +437,10 @@ export default {
     MARKET_FILTER,
     MARKET_ON_CLOSE_ORDER,
     PLACE_INSTRUCTION,
-    TIME_RANGE
+    PRICE_PROJECTION,
+    EX_BEST_OFFERS_OVERRIDES,
+    TIME_RANGE,
+    LIST_EVENT_TYPES,
+    LIST_EVENTS,
+    LIST_MARKET_CATALOGUE
 };
