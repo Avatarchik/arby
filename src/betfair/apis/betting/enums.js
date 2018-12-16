@@ -1,14 +1,11 @@
 const ORDER_PROJECTION = {
     "id": "/OrderProjection",
-    "type": "array",
-    "items": {
-        "type": "string",
-        "enum": [
-            "ALL",
-            "EXECUTABLE",
-            "EXECUTION_COMPLETE"
-        ]
-    }
+    "type": "string",
+    "enum": [
+        "ALL",
+        "EXECUTABLE",
+        "EXECUTION_COMPLETE"
+    ]
 };
 
 const MATCH_PROJECTION = {

@@ -2,7 +2,7 @@ import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
 import Betfair from "../../config";
-import Config from "./config";
+import { Operations } from "./config";
 import TypeDefinitions from "./typeDefs";
 import Enums from "./enums";
 
@@ -38,9 +38,9 @@ export default class BettingAPI {
 	 */
 	async listEventTypes(params) {
 		try {
-			await this.validateParams(Config.LIST_EVENT_TYPES, params, "LIST_EVENT_TYPES");
+			await this.validateParams(Operations.LIST_EVENT_TYPES, params, "LIST_EVENT_TYPES");
 
-			return this.buildRequestBody(Config.LIST_EVENT_TYPES, params);
+			return this.buildRequestBody(Operations.LIST_EVENT_TYPES, params);
 		} catch(err) {
 			console.error(err);
 		}
@@ -54,9 +54,9 @@ export default class BettingAPI {
 	 */
 	async listCompetitions(params) {
 		try {
-			await this.validateParams(Config.LIST_COMPETITIONS, params);
+			await this.validateParams(Operations.LIST_COMPETITIONS, params);
 
-			return this.buildRequestBody(Config.LIST_COMPETITIONS, params);
+			return this.buildRequestBody(Operations.LIST_COMPETITIONS, params);
 		} catch(err) {
 			console.error(err);
 		}
@@ -70,9 +70,9 @@ export default class BettingAPI {
 	 */
 	async listEvents(params) {
 		try {
-			await this.validateParams(Config.LIST_EVENTS, params, "LIST_EVENTS");
+			await this.validateParams(Operations.LIST_EVENTS, params, "LIST_EVENTS");
 
-			return this.buildRequestBody(Config.LIST_EVENTS, params);
+			return this.buildRequestBody(Operations.LIST_EVENTS, params);
 		} catch(err) {
 			console.log(err);
 		}
@@ -86,9 +86,9 @@ export default class BettingAPI {
 	 */
 	async listMarketCatalogue(params) {
 		try {
-			await this.validateParams(Config.LIST_MARKET_CATALOGUE, params, "LIST_MARKET_CATALOGUE");
+			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params, "LIST_MARKET_CATALOGUE");
 
-			return this.buildRequestBody(Config.LIST_MARKET_CATALOGUE, params);
+			return this.buildRequestBody(Operations.LIST_MARKET_CATALOGUE, params);
 		} catch(err) {
 			console.error(err);
 		}
@@ -116,9 +116,9 @@ export default class BettingAPI {
 		} = params;
 
 		try {
-			await this.validateParams(Config.LIST_MARKET_BOOK, params, "LIST_MARKET_BOOK");
+			await this.validateParams(Operations.LIST_MARKET_BOOK, params, "LIST_MARKET_BOOK");
 
-			return this.buildRequestBody(Config.LIST_MARKET_BOOK, params);
+			return this.buildRequestBody(Operations.LIST_MARKET_BOOK, params);
 		} catch(err) {
 			console.error(err);
 		}
@@ -132,9 +132,9 @@ export default class BettingAPI {
 	 */
 	async listRunnerBook(params) {
 		try {
-			await this.validateParams(Config.LIST_RUNNER_BOOK, params, "LIST_RUNNER_BOOK");
+			await this.validateParams(Operations.LIST_RUNNER_BOOK, params, "LIST_RUNNER_BOOK");
 
-			return this.buildRequestBody(Config.LIST_RUNNER_BOOK, params);
+			return this.buildRequestBody(Operations.LIST_RUNNER_BOOK, params);
 		} catch(err) {
 			console.error(err);
 		}
@@ -148,9 +148,9 @@ export default class BettingAPI {
 	 */
 	async listMarketTypes(params) {
 		try {
-			await this.validateParams(Config.LIST_MARKET_TYPES, params);
+			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
 
-			return this.buildRequestBody(Config.LIST_MARKET_TYPES, params);
+			return this.buildRequestBody(Operations.LIST_MARKET_TYPES, params);
 		} catch(err) {
 			console.error(err);
 		}
