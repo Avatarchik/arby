@@ -72,10 +72,95 @@ const PRICE_DATA = {
     }
 };
 
+const MARKET_BETTING_TYPE = {
+    "id": "/MarketBettingType",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "ODDS",
+            "LINE",
+            "RANGE",
+            "ASIAN_HANDICAP_DOUBLE_LINE",
+            "ASIAN_HANDICAP_SINGLE_LINE",
+            "FIXED_ODDS"
+        ]
+    }
+};
+
+const MARKET_STATUS = {
+    "id": "/MarketStatus",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "INACTIVE",
+            "OPEN",
+            "SUSPENDED",
+            "CLOSED"
+        ]
+    }
+};
+
+const ORDER_TYPE = {
+    "id": "/OrderType",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "LIMIT",
+            "LIMIT_ON_CLOSE",
+            "MARKET_ON_CLOSE"
+        ]
+    }
+};
+
+const SIDE = {
+    "id": "/Side",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "BACK",
+            "LAY"
+        ]
+    }
+};
+
+const PERSISTENCE_TYPE = {
+    "id": "/PersistenceType",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "LAPSE",
+            "PERSIST",
+            "MARKET_ON_CLOSE"
+        ]
+    }
+};
+
+const TIME_IN_FORCE = {
+    "id": "/TimeInForce",
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "FILL_OR_KILL"
+        ]
+    }
+};
+
 export default {
     ORDER_PROJECTION,
+    ORDER_TYPE,
+    PERSISTENCE_TYPE,
     PRICE_DATA,
+    MARKET_BETTING_TYPE,
     MATCH_PROJECTION,
     MARKET_PROJECTION,
-    MARKET_SORT
+    MARKET_SORT,
+    MARKET_STATUS,
+    SIDE,
+    TIME_IN_FORCE
 };

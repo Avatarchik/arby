@@ -45,18 +45,7 @@ const MARKET_FILTER = {
             "type": "boolean"
         },
         "marketBettingTypes": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "ODDS",
-                    "LINE",
-                    "RANGE",
-                    "ASIAN_HANDICAP_number_LINE",
-                    "ASIAN_HANDICAP_SINGLE_LINE",
-                    "FIXED_ODDS"
-                ]
-            }
+            "$ref": "/MarketBettingType"
         },
         "marketCountries": {
             "type": "array",
@@ -161,6 +150,58 @@ const LIST_MARKET_CATALOGUE = {
     }
 };
 
+const LIST_MARKET_BOOK = {
+    "id": "/listMarketBook",
+    "type": "object",
+    "properties": {
+        "marketIds": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "priceProjection": {
+            "$ref": "/PriceProjection"
+        },
+        "orderProjection": {
+            "$ref": "/OrderProjection"
+        },
+        "matchProjection": {
+            "$ref": "/MatchProjection"
+        },
+        "includeOverallPosition": {
+            "type": "boolean"
+        },
+        "partitionMatchedByStrategyRef": {
+            "type": "boolean"
+        },
+        "customerStrategyRefs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "currencyCode": {
+            "type": "string"
+        },
+        "locale": {
+            "type": "string"
+        },
+        "matchedSince": {
+            "type": "Date"
+        },
+        "betIds": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "marketIds"
+    ]
+};
+
 const MARKET_BOOK = {
     "id": "/MarketBook",
     "type": "object",
@@ -172,16 +213,7 @@ const MARKET_BOOK = {
             "type": "boolean"
         },
         "status": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "INACTIVE",
-                    "OPEN",
-                    "SUSPENDED",
-                    "CLOSED"
-                ]
-            }
+            "$ref": "/MarketStatus"
         },
         "betDelay": {
             "type": "boolean"
@@ -240,14 +272,7 @@ const PLACE_INSTRUCTION = {
     "type": "object",
     "properties": {
         "orderType": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "LIMIT",
-                    "LIMIT_ON_CLOSE"
-                ]
-            }
+            "$ref": "/OrderType",
         },
         "sectionId": {
             "type": "string"
@@ -256,14 +281,7 @@ const PLACE_INSTRUCTION = {
             "type": "number"
         },
         "side": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "BACK",
-                    "LAY"
-                ]
-            }
+            "$ref": "/Side"
         },
         "limitOrder": {
             "$ref": "/LimitOrder"
@@ -290,10 +308,7 @@ const PRICE_PROJECTION = {
     "type": "object",
     "properties": {
         "priceData": {
-            "type": "array",
-            "items": {
-                "$ref": "/PriceData"
-            }
+            "$ref": "/PriceData"
         },
         "exBestOffersOverrides": {
             "$ref": "/ExBestOffersOverrides"
@@ -328,7 +343,59 @@ const LIST_EVENTS = {
     "required": [
         "filter"
     ]
-}
+};
+
+const LIST_RUNNER_BOOK = {
+    "id": "/listRunnerBook",
+    "type": "object",
+    "properties": {
+        "marketId": {
+            "type": "string"
+        },
+        "selectionId": {
+            "type": "string"
+        },
+        "handicap": {
+            "type": "number"
+        },
+        "priceProjection": {
+            "$ref": "/PriceProjection"
+        },
+        "orderProjection": {
+            "$ref": "/OrderProjection"
+        },
+        "matchProjection": {
+            "$ref": "/MatchProjection"
+        },
+        "includeOverallPosition": {
+            "type": "boolean"
+        },
+        "partitionMatchedByStrategyRef": {
+            "type": "boolean"
+        },
+        "customerStrategyRefs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "currencyCode": {
+            "type": "string"
+        },
+        "locale": {
+            "type": "string"
+        },
+        "matchedSince": {
+            "type": "Date"
+        },
+        "betIds": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+};
 
 const EX_BEST_OFFERS_OVERRIDES = {
     "id": "/ExBestOffersOverrides",
@@ -362,25 +429,11 @@ const LIMIT_ORDER = {
         "price": {
             "type": "number"
         },
-        "persistanceType": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "LAPSE",
-                    "PERSIST",
-                    "MARKET_ON_CLOSE"
-                ]
-            }
+        "persistenceType": {
+            "$ref": "/PersistenceType"
         },
         "timeInForce": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "FILL_OR_KILL"
-                ]
-            }
+            "$ref": "/TimeInForce"
         },
         "minFillSize": {
             "type": "number"
@@ -429,6 +482,35 @@ const MARKET_ON_CLOSE_ORDER = {
     ]
 };
 
+const PLACE_ORDER = {
+    "id": "/placeOrder",
+    "type": "object",
+    "properties": {
+        "marketId": {
+            "type": "string"
+        },
+        "instructions": {
+            "$ref": "/PlaceInstruction"
+        },
+        "customerRef": {
+            "type": "string"
+        },
+        "marketVersion": {
+            "$ref": "/MarketVersion"
+        },
+        "customerStrategyRef": {
+            "type": "string"
+        },
+        "async": {
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "marketId",
+        "instructions"
+    ]
+};
+
 export default {
     LIMIT_ON_CLOSE_ORDER,
     LIMIT_ORDER,
@@ -437,10 +519,13 @@ export default {
     MARKET_FILTER,
     MARKET_ON_CLOSE_ORDER,
     PLACE_INSTRUCTION,
+    PLACE_ORDER,
     PRICE_PROJECTION,
     EX_BEST_OFFERS_OVERRIDES,
     TIME_RANGE,
     LIST_EVENT_TYPES,
     LIST_EVENTS,
-    LIST_MARKET_CATALOGUE
+    LIST_MARKET_BOOK,
+    LIST_MARKET_CATALOGUE,
+    LIST_RUNNER_BOOK
 };

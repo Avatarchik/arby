@@ -15,15 +15,20 @@ let eventTypes;
 let eventTypeIds;
 let events;
 let eventIds;
-let marketCatalogue;
+let marketCatalogues;
 let marketIds;
+let marketBooks;
+let runners;
+let runnerBook;
 
 (async() => {
 	await bettingApi.initAxios();
 
 	// Get all event types
 	try {
-		response = await bettingApi.listEventTypes();
+		response = await bettingApi.listEventTypes({
+			filter: {}
+		});
 		eventTypes = response.data.result;
 
 		eventTypeIds = find(eventTypes, (eT) => eT.eventType.name === "Soccer").eventType.id;
@@ -56,7 +61,8 @@ let marketIds;
 		events = response.data.result;
 
 		console.log("::: events :::");
-		console.log(events);
+		// console.log(events);
+		// console.log(events.find(event => (event.event.countryCode === "GB")));
 
 		eventIds = reduce(events, (arr, e) => concat(arr, e.event.id), []);
 		// console.log("\n\n\n::: eventIds :::");
@@ -72,7 +78,9 @@ let marketIds;
 				eventTypeIds: [
 					eventTypeIds
 				],
-				eventIds
+				eventIds: [
+					"29027114"
+				]
 			},
 			marketProjection: [
 				"COMPETITION",
@@ -80,26 +88,46 @@ let marketIds;
 			],
 			maxResults: 10
 		});
-		marketCatalogue = response.data.result;
-		marketIds = marketCatalogue.map(market => market.marketId);
+		marketCatalogues = response.data.result;
+		marketIds = marketCatalogues.map(market => market.marketId);
 		console.log("\n\n\n::: marketCatalogue :::");
-		console.log(marketCatalogue);
-		console.log("::: marketIds :::");
-		console.log(marketIds);
+		console.log(marketCatalogues.find(mC => mC.marketName === "Man Utd win to Nil").marketId);
+		// console.log("::: marketIds :::");
+		// console.log(marketIds);
 	} catch(err) {
 		console.error(err);
 	}
 
-	// try {
-	// 	response = await bettingApi.listMarketBook({
-	// 		_marketIds: {
-	// 			params: marketIds
-	// 		}
-	// 	});
-	// } catch(err) {
-	// 	console.error(err);
-	// }
+	try {
+		response = await bettingApi.listMarketBook({
+			marketIds: [
+				String(marketCatalogues.find(mC => mC.marketName === "Man Utd win to Nil").marketId)
+			]
+		});
+		marketBooks = response.data.result;
+		runners = marketBooks.map(marketBook => marketBook.runners);
 
+		console.log("::: marketBooks :::");
+		console.log(marketBooks[0]);
+		// console.log("::: runners :::");
+		// console.log(runners);
+	} catch(err) {
+		console.error(err);
+	}
+
+
+	try {
+		response = await bettingApi.listRunnerBook({
+			marketId: marketBooks[0].marketId,
+			selectionId: String(marketBooks[0].runners[0].selectionId)
+		});
+		runnerBook = response.data.result;
+
+		// console.log("::: runnerBook :::");
+		// console.log(runnerBook[0]);
+	} catch(err) {
+		console.error(err);
+	}
 	// try {
 	// 	respone = await bettingApi.placeOrders({
 	// 		opMarketId: marketCatalogue[0].marketId,
