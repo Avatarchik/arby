@@ -1,4 +1,4 @@
-const ORDER_PROJECTION = {
+const OrderProjection = {
     "id": "/OrderProjection",
     "type": "string",
     "enum": [
@@ -8,7 +8,7 @@ const ORDER_PROJECTION = {
     ]
 };
 
-const MATCH_PROJECTION = {
+const MatchProjection = {
     "id": "/MatchProjection",
     "type": "array",
     "items": {
@@ -21,7 +21,7 @@ const MATCH_PROJECTION = {
     }
 };
 
-const MARKET_PROJECTION = {
+const MarketProjection = {
     "id": "/MarketProjection",
     "type": "array",
     "items": {
@@ -38,7 +38,7 @@ const MARKET_PROJECTION = {
     }
 };
 
-const MARKET_SORT = {
+const MarketSort = {
     "id": "/MarketSort",
     "type": "array",
     "items": {
@@ -54,7 +54,7 @@ const MARKET_SORT = {
     }
 };
 
-const PRICE_DATA = {
+const PriceData = {
     "id": "/PriceData",
     "type": "array",
     "items": {
@@ -69,7 +69,7 @@ const PRICE_DATA = {
     }
 };
 
-const MARKET_BETTING_TYPE = {
+const MarketBettingType = {
     "id": "/MarketBettingType",
     "type": "array",
     "items": {
@@ -85,7 +85,7 @@ const MARKET_BETTING_TYPE = {
     }
 };
 
-const MARKET_STATUS = {
+const MarketStatus = {
     "id": "/MarketStatus",
     "type": "array",
     "items": {
@@ -99,7 +99,7 @@ const MARKET_STATUS = {
     }
 };
 
-const ORDER_TYPE = {
+const OrderType = {
     "id": "/OrderType",
     "type": "array",
     "items": {
@@ -112,7 +112,7 @@ const ORDER_TYPE = {
     }
 };
 
-const SIDE = {
+const Side = {
     "id": "/Side",
     "type": "array",
     "items": {
@@ -124,7 +124,7 @@ const SIDE = {
     }
 };
 
-const PERSISTENCE_TYPE = {
+const PersistenceType = {
     "id": "/PersistenceType",
     "type": "array",
     "items": {
@@ -137,7 +137,7 @@ const PERSISTENCE_TYPE = {
     }
 };
 
-const TIME_IN_FORCE = {
+const TimeInForce = {
     "id": "/TimeInForce",
     "type": "array",
     "items": {
@@ -149,15 +149,15 @@ const TIME_IN_FORCE = {
 };
 
 export default {
-    ORDER_PROJECTION,
-    ORDER_TYPE,
-    PERSISTENCE_TYPE,
-    PRICE_DATA,
-    MARKET_BETTING_TYPE,
-    MATCH_PROJECTION,
-    MARKET_PROJECTION,
-    MARKET_SORT,
-    MARKET_STATUS,
-    SIDE,
-    TIME_IN_FORCE
+    OrderProjection,
+    OrderType,
+    PersistenceType,
+    PriceData,
+    MarketBettingType,
+    MatchProjection,
+    MarketProjection,
+    MarketSort,
+    MarketStatus,
+    Side,
+    TimeInForce
 };

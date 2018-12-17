@@ -1,4 +1,4 @@
-const MARKET_FILTER = {
+const MarketFilter = {
     "id": "/MarketFilter",
     "type": "object",
     "properties": {
@@ -93,7 +93,7 @@ const MARKET_FILTER = {
     }
 };
 
-const TIME_RANGE = {
+const TimeRange = {
     "id": "/TimeRange",
     "type": "object",
     "properties": {
@@ -109,7 +109,7 @@ const TIME_RANGE = {
 /*
  * Information about a market
  */
-const MARKET_CATALOGUE = {
+const MarketCatalogue = {
     "id": "/MarketCatalogue",
     "type": "object",
     "properties": {
@@ -156,107 +156,10 @@ const MARKET_CATALOGUE = {
     ]
 };
 
-const LIST_MARKET_CATALOGUE = {
-    "id": "/listMarketCatalogue",
-    "type": "object",
-    "properties": {
-        // Filter to select desired markets. All markets that match the criteria in filter are selected
-        "filter": {
-            "$ref": "/MarketFilter"
-        },
-        // Type and amount of data returned in about the market
-        "marketProjection": {
-            "$ref": "/MarketProjection"
-        },
-        // Order of the results. Will default to RANK if not passed. RANK is an assigned priority that is determined by our Market Operations team in our back-end system
-        // A result's overall rank is derived from the ranking given to the following attributes for the result; EventType, Competition, StartTime, MarketType, MarketId.
-        // For example, EventType is ranked by the most popular sports types and marketTypes are ranked in the following order; ODDS, ASIAN, LINE, RANGE.
-        // If all other dimensions of the result are equal, then the results are ranked in the MarketId order
-        "sort": {
-            "$ref": "/MarketSort"
-        },
-        // Limit on the total number of results returned (> 0 && <= 1000)
-        "maxResults": {
-            "type": "number"
-        },
-        // Language used for the response. If not specified, the default is returned
-        "locale": {
-            "type": "string"
-        }
-    }
-};
-
-const LIST_MARKET_BOOK = {
-    "id": "/listMarketBook",
-    "type": "object",
-    "properties": {
-        // 1+ market IDs. The number of markets returned depends on the amount of data you request via the priceProjection
-        "marketIds": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
-        // Projection of price data you want to receive in the response
-        "priceProjection": {
-            "$ref": "/PriceProjection"
-        },
-        // Orders you want to receive in the response
-        "orderProjection": {
-            "$ref": "/OrderProjection"
-        },
-        // If you ask for orders, specifies the representation of matches
-        "matchProjection": {
-            "$ref": "/MatchProjection"
-        },
-        // If you ask for orders, returns matches for each selection. Defaults to 'true' if unspecified
-        "includeOverallPosition": {
-            "type": "boolean"
-        },
-        // If you ask for orders, returns the breakdown of matches by strategy for each selection. Defaults to 'false' if unspecified
-        "partitionMatchedByStrategyRef": {
-            "type": "boolean"
-        },
-        // If you ask for orders, restricts the results to orders matching any of the specified set of customer defined strategies
-        // Also filters which matches by strategy for selections are returned, if 'partitionMatchedByStrategyRef' is 'true'
-        // An empty set will be treated as if the parameter haz been omitted (or null passed)
-        "customerStrategyRefs": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
-        // A Betfair standard currency code. If not specified, the default currency code is used
-        "currencyCode": {
-            "type": "string"
-        },
-        // Language used for the response. If not specified, the default is returned
-        "locale": {
-            "type": "string"
-        },
-        // If you ask for orders, restricts the results to orders that have at least 1 fragment matched since the specified data (all matched fragments of such an order will be returned even if some were matched before the specified date)
-        // All EXECUTABLE orders will be returned regardless of matched date
-        "matchedSince": {
-            "type": "Date"
-        },
-        // If you ask for orders, restricts the results to orders with the specified bet IDs. Omitting this parameter means that all bets will be included in the response
-        // Maximum of 250 betId's can be supplied at a time
-        "betIds": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        }
-    },
-    "required": [
-        "marketIds"
-    ]
-};
-
 /*
  * The dynamic data in a market
  */
-const MARKET_BOOK = {
+const MarketBook = {
     "id": "/MarketBook",
     "type": "object",
     "properties": {
@@ -345,7 +248,7 @@ const MARKET_BOOK = {
 /*
  * Instruction to place a new order
  */
-const PLACE_INSTRUCTION = {
+const PlaceInstruction = {
     "id": "/PlaceInstruction",
     "type": "object",
     "properties": {
@@ -398,7 +301,7 @@ const PLACE_INSTRUCTION = {
 /*
  * Selection criteria of the returning price data
  */
-const PRICE_PROJECTION = {
+const PriceProjection = {
     "id": "/PriceProjection",
     "type": "object",
     "properties": {
@@ -424,115 +327,10 @@ const PRICE_PROJECTION = {
     }
 };
 
-const LIST_EVENT_TYPES = {
-    "id": "/listEventTypes",
-    "type": "object",
-    "properties": {
-        // Filter to select desired markets
-        // All markets that match criteria in the filter are selected
-        "filter": {
-            "$ref": "/MarketFilter"
-        },
-        // Language used for the response. If not specified, the default is returned
-        "locale": {
-            "type": "string"
-        }
-    }
-};
-
-const LIST_EVENTS = {
-    "id": "/listEvents",
-    "type": "object",
-    "properties": {
-        // Filter to select desired markets
-        // All markets that match criteria in the filter are selected
-        "filter": {
-            "$ref": "/MarketFilter"
-        },
-        // Language used for the response. If not specified, the default is returned
-        "locale": {
-            "type": "string"
-        }
-    },
-    "required": [
-        "filter"
-    ]
-};
-
-const LIST_RUNNER_BOOK = {
-    "id": "/listRunnerBook",
-    "type": "object",
-    "properties": {
-        // The unique identifier for the market. MarketId's are prefixed with '1.' or '2.' ('1.' = UK Exchange, '2.' = AUS Exchange) 
-        "marketId": {
-            "type": "string"
-        },
-        // The unique identified for the selection in the market
-        "selectionId": {
-            "type": "string"
-        },
-        // The handicap associated with the runner in case of Asian handicap markets (i.e. marketTypes: ASIAN_HANDICAP_DOUBLE_LINE, ASIAN_HANDICAP_SINGLE_LINE)
-        // Null otherwise
-        "handicap": {
-            "type": "number"
-        },
-        // Projection of price data you want to receive in the response
-        "priceProjection": {
-            "$ref": "/PriceProjection"
-        },
-        // Orders you want to receive in the response
-        "orderProjection": {
-            "$ref": "/OrderProjection"
-        },
-        // If you ask for orders, specifies the representation of matches
-        "matchProjection": {
-            "$ref": "/MatchProjection"
-        },
-        // If you ask for orders, returns matches for each selection. Defaults to 'true' if unspecified
-        "includeOverallPosition": {
-            "type": "boolean"
-        },
-        // If you ask for orders, returns the breakdown of matches by strategy for each selection. Defaults to 'false' if unspecified
-        "partitionMatchedByStrategyRef": {
-            "type": "boolean"
-        },
-        // If you ask for orders, restricts the results to orders matching any of the specified set of customer defined strategies
-        // Also filters which matches by strategy for selections are returned, if 'partitionMatchedByStrategyRef' is 'true'
-        // An empty set will be treated as if the parameter haz been omitted (or null passed)
-        "customerStrategyRefs": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
-        // A Betfair standard currency code. If not specified, the default currency code is used
-        "currencyCode": {
-            "type": "string"
-        },
-        // Language used for the response. If not specified, the default is returned
-        "locale": {
-            "type": "string"
-        },
-        // If you ask for orders, restricts the results to orders that have at least 1 fragment matched since the specified data (all matched fragments of such an order will be returned even if some were matched before the specified date)
-        // All EXECUTABLE orders will be returned regardless of matched date
-        "matchedSince": {
-            "type": "Date"
-        },
-        // If you ask for orders, restricts the results to orders with the specified bet IDs. Omitting this parameter means that all bets will be included in the response
-        // Maximum of 250 betId's can be supplied at a time
-        "betIds": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        }
-    }
-};
-
 /*
  * Options to alter the default representation of best offer prices
  */
-const EX_BEST_OFFERS_OVERRIDES = {
+const ExBestOffersOverrides = {
     "id": "/ExBestOffersOverrides",
     "type": "object",
     "properties": {
@@ -564,7 +362,7 @@ const EX_BEST_OFFERS_OVERRIDES = {
 /*
  * Place a new LIMIT order (simple exchange bet for immediate execution)
  */
-const LIMIT_ORDER = {
+const LimitOrder = {
     "id": "/LimitOrder",
     "type": "object",
     "properties": {
@@ -616,7 +414,7 @@ const LIMIT_ORDER = {
 /*
  * Place a new LIMIT_ON_CLOSE (LOC) bet
  */
-const LIMIT_ON_CLOSE_ORDER = {
+const LimitOnCloseOrder = {
     "id": "/LimitOnCloseOrder",
     "type": "object",
     "properties": {
@@ -638,7 +436,7 @@ const LIMIT_ON_CLOSE_ORDER = {
 /*
  * Place a neew MARKET_ON_CLOSE (MOC) bet
  */
-const MARKET_ON_CLOSE_ORDER = {
+const MarketOnCloseOrder = {
     "id": "/MarketOnCloseOrder",
     "type": "object",
     "properties": {
@@ -652,62 +450,15 @@ const MARKET_ON_CLOSE_ORDER = {
     ]
 };
 
-const PLACE_ORDER = {
-    "id": "/placeOrder",
-    "type": "object",
-    "properties": {
-        // The unique identifier for the market. MarketId's are prefixed with '1.' or '2.' ('1.' = UK Exchange, '2.' = AUS Exchange) 
-        "marketId": {
-            "type": "string"
-        },
-        // Number of place instructions. Limit of place instructions per request is 200 for UK/AUS Exchange & 50 for Italian Exchange
-        "instructions": {
-            "$ref": "/PlaceInstruction"
-        },
-        // Optional parameter allowing the client to pass a unique string (up to 32 chars) that is used to de-dupe mistaken re-submissions
-        // 'customerRef' can contain; upper/lower chars, digits, special chars (:-._+*;~)
-        // There is a time window associated with the de-duplication of duplicate submissions which is 60 seconds
-        "customerRef": {
-            "type": "string"
-        },
-        // Optional parameter allowing you to specify which version of the market the orders should be place on
-        // If current market version is higher that that sent on an ordeer, the bet will be lapsed
-        "marketVersion": {
-            "$ref": "/MarketVersion"
-        },
-        // Optional reference you can use to specify which strategy has sent the order. The reference will be returned on order change messages through the stream API
-        // The string is limited to 15 chars. If an empty string is provided, treated as null 
-        "customerStrategyRef": {
-            "type": "string"
-        },
-        // Optional flag which specifies if the orders should be places asynchronously. Order can be tracked via the Exchange Stream API or the API-NG by providing a 'customerOrderRef' for each place order
-        // An order's status will be PENDING and no bet ID will be returned
-        // This functionality is available for all betting types - including MOC and LOC
-        "async": {
-            "type": "boolean"
-        }
-    },
-    "required": [
-        "marketId",
-        "instructions"
-    ]
-};
-
 export default {
-    LIMIT_ON_CLOSE_ORDER,
-    LIMIT_ORDER,
-    MARKET_BOOK,
-    MARKET_CATALOGUE,
-    MARKET_FILTER,
-    MARKET_ON_CLOSE_ORDER,
-    PLACE_INSTRUCTION,
-    PLACE_ORDER,
-    PRICE_PROJECTION,
-    EX_BEST_OFFERS_OVERRIDES,
-    TIME_RANGE,
-    LIST_EVENT_TYPES,
-    LIST_EVENTS,
-    LIST_MARKET_BOOK,
-    LIST_MARKET_CATALOGUE,
-    LIST_RUNNER_BOOK
+    LimitOnCloseOrder,
+    LimitOrder,
+    MarketBook,
+    MarketCatalogue,
+    MarketFilter,
+    MarketOnCloseOrder,
+    PlaceInstruction,
+    PriceProjection,
+    ExBestOffersOverrides,
+    TimeRange
 };
