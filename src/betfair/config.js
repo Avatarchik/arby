@@ -7,7 +7,7 @@ export default class Betfair {
 		this.loginClient = new Login(
 			process.env.BF_USERNAME,
 			process.env.BF_PASSWORD,
-			process.env.BF_APP_KEY
+			process.env.BF_APP_KEY_DELAY
 		);
 	}
 
@@ -22,7 +22,7 @@ export default class Betfair {
 			baseURL: `https://${process.env.BF_API_HOSTNAME}`,
 			headers: {
 				"Accept": "application/json",
-				"X-Application": process.env.BF_APP_KEY,
+				"X-Application": process.env.BF_APP_KEY_DELAY,
 				"Content-Type": "application/json",
 				"X-Authentication": process.env.BF_SESSIONTOKEN
 			},

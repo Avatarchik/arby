@@ -3,8 +3,10 @@ import { merge, forEach, map, reduce } from "lodash";
 
 import Betfair from "../../config";
 import { Operations } from "./config";
-import TypeDefinitions from "./typeDefs";
-import Enums from "./enums";
+
+import TypeDefinitionSchemas from "./schemas/typeDefs";
+import EnumSchemas from "./schemas/enums";
+import OperationSchemas from "./schemas/operations";
 
 /**
  * Class representing the Betting API
@@ -18,8 +20,9 @@ export default class BettingAPI {
 			throwError: true
 		});
 
-		forEach(TypeDefinitions, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
-		forEach(Enums, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
+		forEach(TypeDefinitionSchemas, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
+		forEach(EnumSchemas, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
+		forEach(OperationSchemas, (Operation, id) => this.validator.addSchema(Operation, Operation.id));
 	}
 
 	async initAxios() {
@@ -38,7 +41,7 @@ export default class BettingAPI {
 	 */
 	async listEventTypes(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENT_TYPES, params, "LIST_EVENT_TYPES");
+			await this.validateParams(Operations.LIST_EVENT_TYPES, params);
 
 			return this.buildRequestBody(Operations.LIST_EVENT_TYPES, params);
 		} catch(err) {
@@ -70,7 +73,7 @@ export default class BettingAPI {
 	 */
 	async listEvents(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENTS, params, "LIST_EVENTS");
+			await this.validateParams(Operations.LIST_EVENTS, params);
 
 			return this.buildRequestBody(Operations.LIST_EVENTS, params);
 		} catch(err) {
@@ -86,7 +89,7 @@ export default class BettingAPI {
 	 */
 	async listMarketCatalogue(params) {
 		try {
-			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params, "LIST_MARKET_CATALOGUE");
+			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params);
 
 			return this.buildRequestBody(Operations.LIST_MARKET_CATALOGUE, params);
 		} catch(err) {
@@ -116,7 +119,7 @@ export default class BettingAPI {
 		} = params;
 
 		try {
-			await this.validateParams(Operations.LIST_MARKET_BOOK, params, "LIST_MARKET_BOOK");
+			await this.validateParams(Operations.LIST_MARKET_BOOK, params);
 
 			return this.buildRequestBody(Operations.LIST_MARKET_BOOK, params);
 		} catch(err) {
@@ -132,7 +135,7 @@ export default class BettingAPI {
 	 */
 	async listRunnerBook(params) {
 		try {
-			await this.validateParams(Operations.LIST_RUNNER_BOOK, params, "LIST_RUNNER_BOOK");
+			await this.validateParams(Operations.LIST_RUNNER_BOOK, params);
 
 			return this.buildRequestBody(Operations.LIST_RUNNER_BOOK, params);
 		} catch(err) {
@@ -207,10 +210,9 @@ export default class BettingAPI {
 	 * @private
 	 * @param {String} reqName 
 	 * @param {object} params 
-	 * @param {String} topTypeDef
 	 */
-	validateParams(reqName, params, topTypeDef) {
-		let validation = this.validator.validate(params, TypeDefinitions[topTypeDef]);
+	validateParams(reqName, params) {
+		let validation = this.validator.validate(params, OperationSchemas[reqName]);
 
 		if (validation.errors && validation.errors.length) {
 			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
