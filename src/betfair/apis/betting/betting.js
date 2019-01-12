@@ -1,7 +1,7 @@
 import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
-import Betfair from "../../config";
+import BetfairApi from "../../api";
 import { Operations } from "./config";
 
 import TypeDefinitionSchemas from "./schemas/typeDefs";
@@ -15,7 +15,7 @@ export default class BettingAPI {
 	constructor() {
 		const Validator = jsonschema.Validator;
 
-		this.betfair = (this.betfair || new Betfair());
+		this.api = new BetfairApi();;
 		this.validator = new Validator({
 			throwError: true
 		});
@@ -23,14 +23,6 @@ export default class BettingAPI {
 		forEach(TypeDefinitionSchemas, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
 		forEach(EnumSchemas, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
 		forEach(OperationSchemas, (Operation, id) => this.validator.addSchema(Operation, Operation.id));
-	}
-
-	async initAxios() {
-		try {
-			this.api = await this.betfair.initAxios();
-		} catch(err) {
-			console.error(err);
-		}
 	}
 
 	/**
@@ -146,22 +138,6 @@ export default class BettingAPI {
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params - Parameters for operation ('filter' is required)
-	 * @returns List of market types (i.e. MATCH_ODDS, NEXT_GOAL) associated with markets selected by MarketFilter. Market types are always the same regardless of locale
-	 */
-	async listMarketTypes(params) {
-		try {
-			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
-
-			return this.buildRequestBody(Operations.LIST_MARKET_TYPES, params);
-		} catch(err) {
-			console.error(err);
-		}
-	}
-
-	/**
-	 * @async
-	 * @public
 	 * @param {object} params 
 	 * @returns {Array} List of your current orders. Optionally you can filter & sort your current orders using the various parameters...more to go here but want to figure out multi line tags first
 	 */
@@ -184,13 +160,56 @@ export default class BettingAPI {
 		})
 	}
 
-	placeOrders(params) {
-		const { marketId, instructions, customerRef, marketVersion, customerStrategyRef, async } = params;
+	/**
+	 * @async
+	 * @public
+	 * @param {object} params 
+	 * @returns {object} PlaceExecutionReport
+	 */
+	async placeOrders(params) {
+		try {
+			await this.validateParams(Operations.PLACE_ORDERS, params);
 
+			return this.buildRequestBody(Operations.PLACE_ORDERS, params);
+		} catch(err) {
+			console.error(err);
+		}
+	}
+
+	/**
+	 * @async
+	 * @public
+	 * @param {object} params 
+	 * @returns {object} CancelExecutionOrder
+	 */
+	async cancelOrders(params) {
+		try {
+			await this.validateParams(Operations.CANCEL_ORDERS, params);
+
+			return this.buildRequestBody(Operations.CANCEL_ORDERS, params);
+		} catch(err) {
+			console.error(err);
+		}
+	}
+
+	/**
+	 * @async
+	 * @public
+	 * @param {object} params - Parameters for operation ('filter' is required)
+	 * @returns List of market types (i.e. MATCH_ODDS, NEXT_GOAL) associated with markets selected by MarketFilter. Market types are always the same regardless of locale
+	 */
+	async listMarketTypes(params) {
+		try {
+			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
+
+			return this.buildRequestBody(Operations.LIST_MARKET_TYPES, params);
+		} catch(err) {
+			console.error(err);
+		}
 	}
 
 	buildRequestBody(operation, filters) {
-		return this.api.post(process.env.BF_API_JSONRPC_ENDPOINT, {
+		return this.api.api.post(process.env.BF_API_BETTING_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,

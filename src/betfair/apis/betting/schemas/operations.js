@@ -210,7 +210,10 @@ const placeOrder = {
         },
         // Number of place instructions. Limit of place instructions per request is 200 for UK/AUS Exchange & 50 for Italian Exchange
         "instructions": {
-            "$ref": "/PlaceInstruction"
+            "type": "array",
+            "items": {
+                "$ref": "/PlaceInstruction"
+            }
         },
         // Optional parameter allowing the client to pass a unique string (up to 32 chars) that is used to de-dupe mistaken re-submissions
         // 'customerRef' can contain; upper/lower chars, digits, special chars (:-._+*;~)

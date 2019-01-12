@@ -101,27 +101,21 @@ const MarketStatus = {
 
 const OrderType = {
     "id": "/OrderType",
-    "type": "array",
-    "items": {
-        "type": "string",
-        "enum": [
-            "LIMIT",
-            "LIMIT_ON_CLOSE",
-            "MARKET_ON_CLOSE"
-        ]
-    }
+    "type": "string",
+    "enum": [
+        "LIMIT",
+        "LIMIT_ON_CLOSE",
+        "MARKET_ON_CLOSE"
+    ]
 };
 
 const Side = {
     "id": "/Side",
-    "type": "array",
-    "items": {
-        "type": "string",
-        "enum": [
-            "BACK",
-            "LAY"
-        ]
-    }
+    "type": "string",
+    "enum":  [
+        "BACK",
+        "LAY"
+    ]
 };
 
 const PersistenceType = {
