@@ -1,11 +1,23 @@
 import moment from "moment";
 import chalk from "chalk";
-import { flattenDeep } from "lodash";
 
 import BettingApi from "./apis/betting/betting";
 import AccountsApi from "./apis/accounts/accounts";
 import Api from "./api";
 import { EventTypeIds } from "./apis/betting/config";
+import { APINGException as BettingAPINGException } from "./apis/betting/exceptions";
+import { APINGException as AccountAPINGException } from "./apis/accounts/exceptions";
+import { Operations as BettingOperations } from "./apis/betting/config";
+import { Operations as AccountOperations } from "./apis/accounts/config";
+
+import {
+	getMarketIdsFromCatalogues,
+	buildMarkets,
+	calculateBestOdds,
+	getFundsToSpend,
+	getSideAndAvgPriceForMarkets,
+	allocateFundsPerRunner
+} from "../lib/helpers";
 
 const log = console.log;
 const error = chalk.bold.red;
@@ -24,15 +36,17 @@ async function getAccountFunds() {
 			filter: {}
 		});
 
-		return response.data.result.availableToBetBalance;
+		if (response.data.error) {
+			throw new AccountAPINGException(response.data.error, AccountOperations.GET_ACCOUNT_FUNDS);
+		}
+		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
 }
 
-async function getEventTypeIds() {
+async function getEventTypes() {
 	let response;
-	let eventTypes;
 
     try {
 		response = await bettingApi.listEventTypes({
@@ -42,17 +56,18 @@ async function getEventTypeIds() {
 				]
 			}
 		});
-		eventTypes = response.data.result;
 
-		return eventTypes.map(eT => eT.eventType.id);
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENT_TYPES);
+		}
+		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw error;
 	}
 }
 
-async function getEventIds(eventTypeIds) {
+async function getEvents(eventTypeIds) {
 	let response;
-	let events;
 
     try {
 		response = await bettingApi.listEvents({
@@ -72,11 +87,13 @@ async function getEventIds(eventTypeIds) {
 				]
 			}
 		});
-		events = response.data.result;
 
-		return events.map(e => e.event.id);
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENTS);
+		}
+		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
 }
 
@@ -92,14 +109,17 @@ async function getMarketCatalogues(eventIds) {
 				"EVENT",
 				"MARKET_START_TIME",
 				"MARKET_DESCRIPTION",
-				"RUNNER_DESCRIPTION"
+				"RUNNER_DESCRIPTION",
 			],
 			maxResults: 100
 		});
 
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_CATALOGUE);
+		}
 		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
 }
 
@@ -117,9 +137,12 @@ async function getMarketBooks(marketIds) {
 			//orderProjection: "ALL"
 		});
 
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_BOOK);
+		}
 		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
 }
 
@@ -132,9 +155,13 @@ async function getRunnerBooks(marketBooks) {
 			selectionId: String(marketBooks[0].runners[0].selectionId)
 		});
 		// do not let the name fool you... what is returned is actually a MarketBook but just with the 1 runner specified
+
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_RUNNER_BOOK);
+		}
 		return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
 }
 
@@ -171,180 +198,20 @@ async function placeBets(markets, funds) {
 				}),
 				async: false
 			};
+
+			console.log("------------------");
+			console.log("::: placeOrder :::");
+			console.log(placeOrder);
+			console.log("------------------");
 		});
 
-		return response.data.result;
+		// if (response.data.error) {
+		// 	throw new BettingAPINGException(response.data.error, BettingOperations.PLACE_ORDERS);
+		// }
+		// return response.data.result;
 	} catch(err) {
-		log(error(err));
+		throw err;
 	}
-}
-
-function getIndividualRunners(markets) {
-	return flattenDeep(markets.map(market => {
-		return market.runners.map(runner => {
-			return {
-				marketId: market.marketId,
-				marketName: market.marketName,
-				runner
-			}
-		})
-	}));
-}
-
-function getAveragePrices(runners) {
-	let aAvgPrice;
-	let bAvgPrice;
-
-	return runners.reduce((acc, market) => {
-		return acc.concat(`${market.marketId}|${market.runner.selectionId}|${market.runner.avgPrice}`);
-	}, []).sort((a, b) => {
-		aAvgPrice = a.split("|")[2];		
-		bAvgPrice = b.split("|")[2];
-
-		return Number(aAvgPrice) - Number(bAvgPrice);
-	});
-}
-
-function getSumOfAveragePrices(prices) {
-	let avgPrice;
-
-	return prices.reduce((acc, price) => {
-		avgPrice = price.split("|")[2];
-
-		return acc + Number(avgPrice);
-	}, 0);
-}
-
-function allocateFundsPerRunner(markets, funds) {
-	const individualRunners = getIndividualRunners(markets);
-	const averagePrices = getAveragePrices(individualRunners);
-	const sum = getSumOfAveragePrices(averagePrices);
-
-	let percentage;
-	let priceToBet;
-	let pricesToBet = [];
-	let amountsToBet;
-	let runners = [];
-	let arr;
-
-	for (let i = 0; i < averagePrices.length; i++) {
-		percentage = Math.round((Number(averagePrices[i].split("|")[2]) / sum) * 100);
-		priceToBet = (funds * (percentage / 100)).toFixed(2);
-
-		pricesToBet.push(priceToBet);
-	}
-	amountsToBet = pricesToBet.reverse();
-
-	for (let i = 0; i < averagePrices.length; i++) {
-		arr = averagePrices[i].split("|");
-
-		runners.push({
-			marketId: String(arr[0]),
-			selectionId: String(arr[1]),
-			avgPrice: Number(arr[2]),
-			toBet: Number(amountsToBet[i])
-		});
-	}
-	return runners;
-}
-
-function getSideAndAvgPriceForMarkets(markets) {
-	let sideAndAvgPrice;
-
-	return markets.map(market => {
-		return {
-			marketId: String(market.marketId),
-			marketName: market.marketName,
-			runners: market.runners.map(runner => {
-				sideAndAvgPrice = calculateSideAndAvgPrice(runner);
-
-				return {
-					runnerName: runner.runnerName,
-					selectionId: String(runner.selectionId),
-					side: sideAndAvgPrice.side,
-					avgPrice: sideAndAvgPrice.averagePrice
-				}
-			})
-		}
-	});
-}
-
-function calculateSideAndAvgPrice(runner) {
-	const backPrices = runner.ex.availableToBack.map(back => back.price);
-	const layPrices = runner.ex.availableToLay.map(lay => lay.price);
-	const averageBack = (Math.max(...backPrices) + Math.min(...backPrices)) / 2;
-	const averageLay = (Math.max(...layPrices) + Math.min(...layPrices)) / 2;
-
-	return {
-		side: (averageBack < averageLay) ? "BACK" : "LAY",
-		averagePrice: (averageBack < averageLay) ? averageBack : averageLay
-	};
-}
-
-function getFundsToSpend(funds) {
-	// 25%
-	return (funds * 0.25);
-}
-
-function getMarketIdsFromCatalogues(catalogues) {
-	return catalogues.filter(catalogue => catalogue.marketName === "Match Odds")
-		.map(market => market.marketId);
-}
-
-function buildMarkets(catalogues, books) {
-	const matchOddsCatalogue = catalogues.filter(catalogue => catalogue.marketName === "Match Odds");
-
-	let marketBook;
-	let marketBookRunner;
-
-	return matchOddsCatalogue.map(catalogue => {
-		marketBook = books.find(book => book.marketId === catalogue.marketId);
-
-		return {
-			eventId: catalogue.event.id,
-			eventName: catalogue.event.name,
-			marketId: catalogue.marketId,
-			marketName: catalogue.marketName,
-			marketStartTime: catalogue.marketStartTime,
-			marketBettingType: catalogue.description.bettingType,
-			marketSuspendTime: catalogue.description.suspendTime,
-			marketSettleTime: (catalogue.description.settleTime || "N/A"),
-			inPlay: marketBook.inplay,									// For scalping the market, want to get games that are inplay
-			isOpen: (marketBook.status === "OPEN"),
-			runners: catalogue.runners.map(runner => {
-				marketBookRunner = marketBook.runners.find(mbRunner => mbRunner.selectionId === runner.selectionId);
-
-				return {
-					selectionId: runner.selectionId,
-					runnerName: runner.runnerName,
-					ex: marketBookRunner.ex
-				}
-			})
-		}
-	});
-}
-
-function calculateBestOdds(markets, priceLimit) {
-	let backers;
-	let layers;
-
-	return markets.map(market => {
-		return {
-			...market,
-			runners: market.runners.filter(runner => {
-				backers = runner.ex.availableToBack.filter(back => back.price < priceLimit);
-				layers = runner.ex.availableToLay.filter(lay => lay.price < priceLimit);
-	
-				if (backers.length || layers.length) {
-					return {
-						backers,
-						layers
-					};
-				}
-			})
-		};
-	})
-		.filter(market => market.runners.length);
 }
 
 export async function init() {
@@ -358,6 +225,8 @@ export async function init() {
 	let matchOddsMarkets;
 	let priceLimit = 2;
 	let marketsWithBestOdds;
+	let events;
+	let eventTypes;
 
     api = new Api();
     api.initAxios();
@@ -367,8 +236,10 @@ export async function init() {
 
     try {
         accountFundsToBet = await getAccountFunds();
-        eventTypeIds = await getEventTypeIds();
-        eventIds = await getEventIds(eventTypeIds);
+		eventTypes = await getEventTypes();
+		eventTypeIds = eventTypes.map(eventType => eventType.eventType.id);
+		events = await getEvents(eventTypeIds);
+		eventIds = events.map(event => event.event.id);
 		marketCatalogues = await getMarketCatalogues(eventIds);
 
 		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
@@ -384,6 +255,6 @@ export async function init() {
 
 		console.log(marketsWithBestOdds);
     } catch(err) {
-        log(error(err));
+        log(error(err.message));
     }
 }
