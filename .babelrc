@@ -1,8 +1,18 @@
 {
   "presets": [
-    "es2015",
-    "stage-0"
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "node": true
+        }
+      }
+    ]
   ],
-  "sourceMaps": true,
-  "retainLines": true
+  "env": {
+    "debug": {
+      "sourceMaps": "inline",
+      "retainLines": true
+    }
+  }
 }

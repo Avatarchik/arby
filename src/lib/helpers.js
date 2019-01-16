@@ -4,8 +4,8 @@ import moment from "moment";
 import { EventTypeIds } from "../betfair/apis/betting/config";
 
 function calculateSideAndAvgPrice(runner) {
-	const backPrices = runner.ex.availableToBack.map(back => back.price);
-	const layPrices = runner.ex.availableToLay.map(lay => lay.price);
+	const backPrices = runner.exchangePrices.availableToBack.map(back => back.price);
+	const layPrices = runner.exchangePrices.availableToLay.map(lay => lay.price);
 	const averageBack = (Math.max(...backPrices) + Math.min(...backPrices)) / 2;
 	const averageLay = (Math.max(...layPrices) + Math.min(...layPrices)) / 2;
 
@@ -120,8 +120,8 @@ export function calculateBestOdds(markets, priceLimit) {
 		return {
 			...market,
 			runners: market.runners.filter(runner => {
-				backers = (!backed) ? runner.ex.availableToBack.filter(back => back.price < priceLimit) : [];
-				layers = runner.ex.availableToLay.filter(lay => lay.price < priceLimit);
+				backers = (!backed) ? runner.exchangePrices.availableToBack.filter(back => back.price < priceLimit) : [];
+				layers = runner.exchangePrices.availableToLay.filter(lay => lay.price < priceLimit);
 	
 				if (backers.length || layers.length) {
 					if (backers.length) {

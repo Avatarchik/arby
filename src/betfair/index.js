@@ -257,16 +257,12 @@ export async function init() {
     try {
 		// Account
 		accountFundsToBet = await getAccountFunds();
-		console.log("::: accountFundsToBet :::");
 
 		// marketTypes = await getMarketTypes();
 		events = await getEvents();
-		console.log("::: events :::");
 
 		marketFilter = getFullMarketFilter(events);
-		console.log("::: marketFilter :::");
 		marketCatalogues = await getMarketCatalogues(marketFilter);
-		console.log("::: marketCatalogues :::");
 
 		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
 
