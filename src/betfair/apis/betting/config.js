@@ -49,3 +49,10 @@ export const EventTypeIds = {
     MIXED_MARTIAL_ARTS: "26420387",
     ESPORTS: "27454571"
 };
+
+export const MarketTypes = {
+    Soccer: {
+        WINNER: "WINNER",
+        UNDIFFERENTIATED: "UNDIFFERENTIATED"
+    }
+}

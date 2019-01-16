@@ -16,7 +16,8 @@ import {
 	calculateBestOdds,
 	getFundsToSpend,
 	getSideAndAvgPriceForMarkets,
-	allocateFundsPerRunner
+	allocateFundsPerRunner,
+	getFullMarketFilter
 } from "../lib/helpers";
 
 const log = console.log;
@@ -45,6 +46,30 @@ async function getAccountFunds() {
 	}
 }
 
+async function getMarketTypes() {
+	let response;
+
+	try {
+		response = await bettingApi.listMarketTypes({
+			filter: {
+				eventTypeIds: [
+					EventTypeIds.SOCCER
+				]
+			}
+		});
+
+		// console.log("::: marketTypes (football) ::: ");
+		// console.log(response.data.result.map(res => res.marketType));
+
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_TYPES);
+		}
+		return response.data.result;
+	} catch(err) {
+		throw err;
+	}
+}
+
 async function getEventTypes() {
 	let response;
 
@@ -62,28 +87,18 @@ async function getEventTypes() {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw error;
+		throw err;
 	}
 }
 
-async function getEvents(eventTypeIds) {
+async function getEvents() {
 	let response;
 
     try {
 		response = await bettingApi.listEvents({
 			filter: {
-				eventTypeIds,
-				marketStartTime: {
-					from: moment().startOf("day").format(),
-					to: moment().endOf("day").format()
-				},
-				marketCountries: [
-					"GB"
-				],
-				turnInPlayEnabled: true,
-				// inPlayOnly: true,
-				marketBettingTypes: [
-					"ODDS"
+				eventTypeIds: [
+					EventTypeIds.SOCCER
 				]
 			}
 		});
@@ -97,14 +112,12 @@ async function getEvents(eventTypeIds) {
 	}
 }
 
-async function getMarketCatalogues(eventIds) {
+async function getMarketCatalogues(filter) {
 	let response;
 
     try {
 		response = await bettingApi.listMarketCatalogue({
-			filter: {
-				eventIds
-			},
+			filter,
 			marketProjection: [
 				"EVENT",
 				"MARKET_START_TIME",
@@ -114,6 +127,8 @@ async function getMarketCatalogues(eventIds) {
 			maxResults: 100
 		});
 
+		console.log("::: MarketCatalogues :::");
+		console.log(response.data.result);
 		if (response.data.error) {
 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_CATALOGUE);
 		}
@@ -191,7 +206,7 @@ async function placeBets(markets, funds) {
 						side: runner.side,
 						limitOrder: {
 							size: theRunner.toBet,
-							price: (theRunner.toBet + (theRunner.toBet * 0.2)),		// 20% of the current market price...
+							price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
 							persistenceType: "PERSIST"								// No going back...
 						}
 					}
@@ -223,10 +238,15 @@ export async function init() {
 	let marketBooks;
 	let runners;
 	let matchOddsMarkets;
-	let priceLimit = 2;
+
+	// Lay price will be higher (worse chances...better payouts) than back price
+	let backPriceLimit = 2;
+	let layPriceLimit = 6;
 	let marketsWithBestOdds;
 	let events;
 	let eventTypes;
+	let marketTypes;
+	let marketFilter;
 
     api = new Api();
     api.initAxios();
@@ -235,12 +255,14 @@ export async function init() {
     accountApi = new AccountsApi();
 
     try {
-        accountFundsToBet = await getAccountFunds();
-		eventTypes = await getEventTypes();
-		eventTypeIds = eventTypes.map(eventType => eventType.eventType.id);
-		events = await getEvents(eventTypeIds);
-		eventIds = events.map(event => event.event.id);
-		marketCatalogues = await getMarketCatalogues(eventIds);
+		// Account
+		accountFundsToBet = await getAccountFunds();
+
+		// marketTypes = await getMarketTypes();
+		events = await getEvents();
+
+		marketFilter = getFullMarketFilter(events);
+		marketCatalogues = await getMarketCatalogues(marketFilter);
 
 		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
 
@@ -249,11 +271,9 @@ export async function init() {
 		
 		matchOddsMarkets = buildMarkets(marketCatalogues, marketBooks);
 
-		marketsWithBestOdds = calculateBestOdds(matchOddsMarkets, priceLimit);
+		marketsWithBestOdds = calculateBestOdds(matchOddsMarkets, 2);
 
 		await placeBets(marketsWithBestOdds, accountFundsToBet);
-
-		console.log(marketsWithBestOdds);
     } catch(err) {
         log(error(err.message));
     }

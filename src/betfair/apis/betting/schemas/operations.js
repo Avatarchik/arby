@@ -28,6 +28,24 @@ const listMarketCatalogue = {
     }
 };
 
+const listMarketTypes = {
+    "id": "/listMarketTypes",
+    "type": "object",
+    "properties": {
+        // Filter to select desired markets. All markets that match the criteria in filter are selected
+        "filter": {
+            "$ref": "/MarketFilter"
+        },
+        // Language used for the response. If not specified, the default is returned
+        "locale": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "filter"
+    ]
+}
+
 const listMarketBook = {
     "id": "/listMarketBook",
     "type": "object",
@@ -248,6 +266,7 @@ export default {
     listEvents,
     listEventTypes,
     listMarketBook,
+    listMarketTypes,
     listMarketCatalogue,
     listRunnerBook,
     placeOrder

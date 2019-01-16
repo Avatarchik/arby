@@ -1,4 +1,7 @@
 import { flattenDeep } from "lodash";
+import moment from "moment";
+
+import { EventTypeIds } from "../betfair/apis/betting/config";
 
 function calculateSideAndAvgPrice(runner) {
 	const backPrices = runner.ex.availableToBack.map(back => back.price);
@@ -109,15 +112,21 @@ export function getFundsToSpend(overallFunds) {
 export function calculateBestOdds(markets, priceLimit) {
 	let backers;
 	let layers;
+	// In match odds, there are 3 runners, you can ONLY back 1 but you are able to lay 2...
+	let backed;
+	let laid = [];
 
 	return markets.map(market => {
 		return {
 			...market,
 			runners: market.runners.filter(runner => {
-				backers = runner.ex.availableToBack.filter(back => back.price < priceLimit);
+				backers = (!backed) ? runner.ex.availableToBack.filter(back => back.price < priceLimit) : [];
 				layers = runner.ex.availableToLay.filter(lay => lay.price < priceLimit);
 	
 				if (backers.length || layers.length) {
+					if (backers.length) {
+						backed = runner.runnerName;
+					}
 					return {
 						backers,
 						layers
@@ -130,12 +139,10 @@ export function calculateBestOdds(markets, priceLimit) {
 }
 
 export function buildMarkets(catalogues, books) {
-	const matchOddsCatalogue = catalogues.filter(catalogue => catalogue.marketName === "Match Odds");
-
 	let marketBook;
 	let marketBookRunner;
 
-	return matchOddsCatalogue.map(catalogue => {
+	return catalogues.map(catalogue => {
 		marketBook = books.find(book => book.marketId === catalogue.marketId);
 
 		return {
@@ -155,7 +162,7 @@ export function buildMarkets(catalogues, books) {
 				return {
 					selectionId: runner.selectionId,
 					runnerName: runner.runnerName,
-					ex: marketBookRunner.ex
+					exchangePrices: marketBookRunner.ex
 				}
 			})
 		}
@@ -163,6 +170,33 @@ export function buildMarkets(catalogues, books) {
 }
 
 export function getMarketIdsFromCatalogues(catalogues) {
-	return catalogues.filter(catalogue => catalogue.marketName === "Match Odds")
-		.map(market => market.marketId);
+	return catalogues.map(market => market.marketId);
+}
+
+export function getFullMarketFilter(events) {
+	console.log("::: getFullMarketFilter :::");
+	console.log("::: events: ", events);
+	return {
+		eventTypeIds: [
+			EventTypeIds.SOCCER
+		],
+		eventIds: events.map(event => {
+			return event.event.id;
+		}),
+		marketStartTime: {
+			from: moment().startOf("day").format(),
+			to: moment().endOf("day").format()
+		},
+		marketCountries: [
+			"GB"
+		],
+		turnInPlayEnabled: true,
+		// inPlayOnly: true,
+		marketBettingTypes: [
+			"ODDS"
+		],
+		marketTypeCodes: [
+			"MATCH_ODDS"
+		]
+	}
 }

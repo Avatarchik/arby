@@ -21,17 +21,6 @@ const log = console.log;
 	process.env.BF_SESSIONTOKEN = await loginClient.login();
 
 	init();
-	// try {
-	// 	respone = await bettingApi.placeOrders({
-	// 		marketId: marketCatalogue[0].marketId,
-	// 		instructions: {
-	// 			handicap: "0",
-	// 			side: "BACK"
-	// 		}
-	// 	});
-	// } catch(err) {
-	// 	console.error(err);
-	// }
 })();
 
 app.use(bodyParser.json());

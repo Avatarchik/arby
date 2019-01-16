@@ -26,6 +26,8 @@ export default class BettingAPI {
 	}
 
 	/**
+	 * NOTE: This is only useful if you do not already know the event types. At the time of write this, these are stored in 'config.js'
+	 * 
 	 * @async
 	 * @public
 	 * @param {object} params - Parameters passed to this operation ('filter' is required) 
@@ -199,6 +201,7 @@ export default class BettingAPI {
 	 * @returns List of market types (i.e. MATCH_ODDS, NEXT_GOAL) associated with markets selected by MarketFilter. Market types are always the same regardless of locale
 	 */
 	async listMarketTypes(params) {
+		// I will want to call this endpoint every so often as market types might change
 		try {
 			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
 
