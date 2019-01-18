@@ -4,11 +4,12 @@ import chalk from "chalk";
 import BettingApi from "./apis/betting/betting";
 import AccountsApi from "./apis/accounts/accounts";
 import Api from "./api";
-import { EventTypeIds } from "./apis/betting/config";
+import { EventTypeIds, MarketProjections, MarketSort } from "./apis/betting/config";
 import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./apis/betting/exceptions";
 import { APINGException as AccountAPINGException } from "./apis/accounts/exceptions";
 import { Operations as BettingOperations } from "./apis/betting/config";
 import { Operations as AccountOperations } from "./apis/accounts/config";
+import MarketFilter from "./apis/betting/marketFilter";
 
 import {
 	getMarketIdsFromCatalogues,
@@ -16,9 +17,8 @@ import {
 	calculateBestOdds,
 	getFundsToSpend,
 	getSideAndAvgPriceForMarkets,
-	allocateFundsPerRunner,
-	getFullMarketFilter
-} from "../lib/helpers";
+	allocateFundsPerRunner
+} from "../../lib/helpers";
 
 const log = console.log;
 const error = chalk.bold.red;
@@ -28,6 +28,25 @@ const info = chalk.bold.blueBright;
 let bettingApi;
 let accountApi;
 let api;
+let marketFilter;
+
+function checkForError(resp, operation, apiException) {
+	if (resp.data.error) {
+		throw new apiException(resp.data.error, operation);
+	}
+	if ((resp.data.result instanceof Array && !resp.data.result.length)
+		|| (resp.data.result instanceof Object && !Object.keys(resp.data.result).length)) {
+		throw {
+			code: "NO_DATA",
+			operation,
+			message: "There were no results retrieved from this operation",
+			stack: new Error().stack
+		}
+	}
+	if (resp.data.result.status === "FAILURE") {
+		throw new PlaceExecutionReport(resp.data.result, operation)
+	}
+}
 
 async function getAccountFunds() {
     let response;
@@ -37,66 +56,60 @@ async function getAccountFunds() {
 			filter: {}
 		});
 
-		if (response.data.error) {
-			throw new AccountAPINGException(response.data.error, AccountOperations.GET_ACCOUNT_FUNDS);
-		}
+		checkForError(response, AccountOperations.GET_ACCOUNT_FUNDS, AccountAPINGException);
 		return response.data.result;
 	} catch(err) {
-		throw {
-			...err,
-			stack: console.trace()
-		};
+		throw err;
 	}
 }
 
-async function getMarketTypes() {
-	let response;
-	let stack;
+// async function getMarketTypes() {
+// 	let response;
 
-	try {
-		response = await bettingApi.listMarketTypes({
-			filter: {
-				eventTypeIds: [
-					EventTypeIds.SOCCER
-				]
-			}
-		});
+// 	try {
+// 		response = await bettingApi.listMarketTypes({
+// 			filter: {
+// 				eventTypeIds: [
+// 					EventTypeIds.HORSE_RACING
+// 				]
+// 			}
+// 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_TYPES);
-		}
-		return response.data.result;
-	} catch(err) {
-		throw {
-			...err,
-			stack: console.trace()
-		};
-	}
-}
+// 		if (response.data.error) {
+// 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_TYPES);
+// 		}
+// 		return response.data.result;
+// 	} catch(err) {
+// 		throw {
+// 			...err,
+// 			stack: console.trace()
+// 		};
+// 	}
+// }
 
-async function getEventTypes() {
-	let response;
+// async function getEventTypes() {
+// 	let response;
 
-    try {
-		response = await bettingApi.listEventTypes({
-			filter: {
-				eventTypeIds: [
-					EventTypeIds.SOCCER
-				]
-			}
-		});
+//     try {
+// 		response = await bettingApi.listEventTypes({
+// 			filter: {
+// 				eventTypeIds: [
+// 					EventTypeIds.SOCCER
+// 				]
+// 			}
+// 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENT_TYPES);
-		}
-		return response.data.result;
-	} catch(err) {
-		throw {
-			...err,
-			stack: trace()
-		};
-	}
-}
+// 		if (response.data.error) {
+// 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENT_TYPES);
+// 		}
+// 		return response.data.result;
+// 	} catch(err) {
+// 		throw {
+// 			...err,
+// 			stack: trace()
+// 		};
+// 	}
+// }
 
 async function getEvents() {
 	let response;
@@ -110,15 +123,10 @@ async function getEvents() {
 			}
 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENTS);
-		}
+		checkForError(response, BettingOperations.LIST_EVENTS, BettingAPINGException);
 		return response.data.result;
 	} catch(err) {
-		throw {
-			...err,
-			stack: trace()
-		};
+		throw err;
 	}
 }
 
@@ -129,29 +137,23 @@ async function getMarketCatalogues(filter) {
 		response = await bettingApi.listMarketCatalogue({
 			filter,
 			marketProjection: [
-				"EVENT",
-				"MARKET_START_TIME",
-				"MARKET_DESCRIPTION",
-				"RUNNER_DESCRIPTION",
+				MarketProjections.EVENT,
+				MarketProjections.MARKET_START_TIME,
+				MarketProjections.MARKET_DESCRIPTION,
+				MarketProjections.RUNNER_DESCRIPTION,
 			],
 			maxResults: 100
 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_CATALOGUE);
-		}
+		checkForError(response, BettingOperations.LIST_MARKET_CATALOGUE, BettingAPINGException);
 		return response.data.result;
 	} catch(err) {
-		throw {
-			...err,
-			stack: trace()
-		};
+		throw err;
 	}
 }
 
 async function getMarketBooks(marketIds) {
 	let response;
-	let stack;
 
     try {
 		response = await bettingApi.listMarketBook({
@@ -164,39 +166,28 @@ async function getMarketBooks(marketIds) {
 			//orderProjection: "ALL"
 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_BOOK);
-		}
+		checkForError(response, BettingOperations.LIST_MARKET_BOOK, BettingAPINGException);
 		return response.data.result;
 	} catch(err) {
-		throw {
-			...err,
-			stack: console.trace()
-		};
+		throw err;
 	}
 }
 
-async function getRunnerBooks(marketBooks) {
-    let response;
+// async function getRunnerBooks(marketBooks) {
+//     let response;
 
-    try {
-		response = await bettingApi.listRunnerBook({
-			marketId: marketBooks[0].marketId,
-			selectionId: String(marketBooks[0].runners[0].selectionId)
-		});
-		// do not let the name fool you... what is returned is actually a MarketBook but just with the 1 runner specified
+//     try {
+// 		response = await bettingApi.listRunnerBook({
+// 			marketId: marketBooks[0].marketId,
+// 			selectionId: String(marketBooks[0].runners[0].selectionId)
+// 		});
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_RUNNER_BOOK);
-		}
-		return response.data.result;
-	} catch(err) {
-		throw {
-			...err,
-			stack: trace()
-		};
-	}
-}
+// 		checkForError(response, BettingOperations.LIST_RUNNER_BOOK, BettingAPINGException);
+// 		return response.data.result;
+// 	} catch(err) {
+// 		throw err;
+// 	}
+// }
 
 async function placeBets(markets, funds) {
 	const fakeFunds = 100;
@@ -206,7 +197,6 @@ async function placeBets(markets, funds) {
 	let sideAndAvgPriceForMarkets = getSideAndAvgPriceForMarkets(markets);
 	let allocatedFunds = allocateFundsPerRunner(sideAndAvgPriceForMarkets, fundsToSpends);
 	let theRunner;
-	let placeOrder;
 
 	try {
 		response = await bettingApi.placeOrders({
@@ -254,32 +244,30 @@ async function placeBets(markets, funds) {
 		// 	});
 		// });
 
-		if (response.data.error) {
-			throw new BettingAPINGException(response.data.error, BettingOperations.PLACE_ORDERS);
-		}
-		if (response.data.result.status === "FAILURE") {
-			throw new PlaceExecutionReport(response.data.result, BettingOperations.PLACE_ORDERS);
-		}
+		checkForError(response, BettingOperations.PLACE_ORDERS, BettingAPINGException);
 		return response.data.result;
 	} catch(err) {
-		throw {
-			...err,
-			stack: trace()
-		};
+		throw err;
 	}
 }
 
-function fixApiCall(error) {
-	switch (error.code) {
-		// MarketFilter has too little restrictions
-		case "TOO_MUCH_DATA":
-			console.log(error);
-			break;
-		case "INSUFFICIENT_FUNDS":
-			// Inform user...AWS SES?
-			break;
-		default:
-			break;
+async function fixApiCall(error) {
+	try {
+		switch (error.code) {
+			// MarketFilter has too little restrictions
+			case "TOO_MUCH_DATA":
+				// console.log(error);
+				// marketFilter.addFilter(bettingApi);
+				// await placeBets()
+				break;
+			case "INSUFFICIENT_FUNDS":
+				// Inform user...AWS SES?
+				break;
+			default:
+				break;
+		}
+	} catch(err) {
+		fixApiCall(err);
 	}
 }
 
@@ -300,7 +288,6 @@ export async function init() {
 	let events;
 	let eventTypes;
 	let marketTypes;
-	let marketFilter;
 
     api = new Api();
     api.initAxios();
@@ -314,14 +301,18 @@ export async function init() {
 
 		// marketTypes = await getMarketTypes();
 		events = await getEvents();
+		eventIds = events.map(event => event.event.id);
 
-		marketFilter = getFullMarketFilter(events);
-		marketCatalogues = await getMarketCatalogues(marketFilter);
+		// marketFilter = getFullMarketFilter(events);
+		marketFilter = new MarketFilter([
+			EventTypeIds.SOCCER
+		], eventIds);
+		marketCatalogues = await getMarketCatalogues(marketFilter.filter);
 
 		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
 
         marketBooks = await getMarketBooks(marketIds);
-		runners = await getRunnerBooks(marketBooks);
+		// runners = await getRunnerBooks(marketBooks);
 		
 		matchOddsMarkets = buildMarkets(marketCatalogues, marketBooks);
 

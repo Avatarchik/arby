@@ -84,7 +84,7 @@ export function APINGException(error, operation) {
     this.code = errorCode;
     this.operation = operation;
     this.message = `The operation ${operation} failed because: ${errorDescription}${(jsonRpcException) ? ` and ${jsonRpcException}` : ""}`;
-    this.stack = console.trace();
+    this.stack = new Error().stack;
 };
 
 export function PlaceExecutionReport(error, operation) {
@@ -100,5 +100,5 @@ export function PlaceExecutionReport(error, operation) {
     this.code = errorCode;
     this.operation = operation;
     this.message = `The operation ${operation} failed because: ${errorDescription}${(instructionReportErrors.length) ? ` with the instruction error(s): ${JSON.stringify(instructionReportErrors)}` : ""}`;
-    this.stack = console.trace();
+    this.stack = new Error().stack;
 };

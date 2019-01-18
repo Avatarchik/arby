@@ -4,9 +4,9 @@ import { merge, forEach, map, reduce } from "lodash";
 import BetfairApi from "../../api";
 import { Operations } from "./config";
 
-import TypeDefinitionSchemas from "./schemas/typeDefs";
-import EnumSchemas from "./schemas/enums";
-import OperationSchemas from "./schemas/operations";
+import TypeDefinitionSchemas from "../../../../models/betting/typeDefs";
+import EnumSchemas from "../../../../models/betting/enums";
+import OperationSchemas from "../../../../models/betting/operations";
 
 /**
  * Class representing the Betting API

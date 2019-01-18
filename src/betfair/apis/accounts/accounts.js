@@ -4,8 +4,8 @@ import { forEach, reduce } from "lodash";
 import BetfairApi from "../../api";
 import { Operations } from "./config";
 
-import EnumSchemas from "./schemas/enums";
-import OperationSchemas from "./schemas/operations";
+import EnumSchemas from "../../../../models/account/enums";
+import OperationSchemas from "../../../../models/account/operations";
 
 export default class AccountsAPI {
 	constructor() {
@@ -25,6 +25,14 @@ export default class AccountsAPI {
 			await this.validateParams(Operations.GET_ACCOUNT_FUNDS, params);
 
 			return this.buildRequestBody(Operations.GET_ACCOUNT_FUNDS, params);
+		} catch(err) {
+			console.error(err);
+		}
+	}
+
+	async getAccountDetails(params) {
+		try {
+			// await this.validateParams(Operations.GET)
 		} catch(err) {
 			console.error(err);
 		}
