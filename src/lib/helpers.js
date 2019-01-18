@@ -174,6 +174,21 @@ export function getMarketIdsFromCatalogues(catalogues) {
 }
 
 export function getFullMarketFilter(events) {
+	let baseMarketFilter = {
+		eventTypeIds: [
+			EventTypeIds.SOCCER
+		],
+		eventIds: events.map(event => {
+			return event.event.id;
+		}),
+		marketStateTime: {
+			from: moment().startOf("day").format(),
+			to: moment().endOf("day").format()
+		},
+		marketBettingTypes: [
+			"ODDS"
+		]
+	};
 	console.log("::: getFullMarketFilter :::");
 	console.log("::: events: ", events);
 	return {

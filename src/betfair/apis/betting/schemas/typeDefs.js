@@ -93,6 +93,16 @@ const MarketFilter = {
     }
 };
 
+const MarketVersion = {
+    "id": "/MarketVersion",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string"
+        }
+    }
+};
+
 const TimeRange = {
     "id": "/TimeRange",
     "type": "object",
@@ -456,6 +466,7 @@ export default {
     MarketBook,
     MarketCatalogue,
     MarketFilter,
+    MarketVersion,
     MarketOnCloseOrder,
     PlaceInstruction,
     PriceProjection,

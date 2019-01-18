@@ -5,7 +5,7 @@ import BettingApi from "./apis/betting/betting";
 import AccountsApi from "./apis/accounts/accounts";
 import Api from "./api";
 import { EventTypeIds } from "./apis/betting/config";
-import { APINGException as BettingAPINGException } from "./apis/betting/exceptions";
+import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./apis/betting/exceptions";
 import { APINGException as AccountAPINGException } from "./apis/accounts/exceptions";
 import { Operations as BettingOperations } from "./apis/betting/config";
 import { Operations as AccountOperations } from "./apis/accounts/config";
@@ -42,12 +42,16 @@ async function getAccountFunds() {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: console.trace()
+		};
 	}
 }
 
 async function getMarketTypes() {
 	let response;
+	let stack;
 
 	try {
 		response = await bettingApi.listMarketTypes({
@@ -58,15 +62,15 @@ async function getMarketTypes() {
 			}
 		});
 
-		// console.log("::: marketTypes (football) ::: ");
-		// console.log(response.data.result.map(res => res.marketType));
-
 		if (response.data.error) {
 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_TYPES);
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: console.trace()
+		};
 	}
 }
 
@@ -87,7 +91,10 @@ async function getEventTypes() {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: trace()
+		};
 	}
 }
 
@@ -108,7 +115,10 @@ async function getEvents() {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: trace()
+		};
 	}
 }
 
@@ -127,19 +137,21 @@ async function getMarketCatalogues(filter) {
 			maxResults: 100
 		});
 
-		console.log("::: MarketCatalogues :::");
-		console.log(response.data.result);
 		if (response.data.error) {
 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_CATALOGUE);
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: trace()
+		};
 	}
 }
 
 async function getMarketBooks(marketIds) {
-    let response;
+	let response;
+	let stack;
 
     try {
 		response = await bettingApi.listMarketBook({
@@ -157,7 +169,10 @@ async function getMarketBooks(marketIds) {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: console.trace()
+		};
 	}
 }
 
@@ -176,7 +191,10 @@ async function getRunnerBooks(marketBooks) {
 		}
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: trace()
+		};
 	}
 }
 
@@ -191,41 +209,77 @@ async function placeBets(markets, funds) {
 	let placeOrder;
 
 	try {
-		sideAndAvgPriceForMarkets.forEach(async (sidePriceMarket) => {
-			placeOrder = {
-				marketId: sidePriceMarket.marketId,
-				instructions: sidePriceMarket.runners.map(runner => {
-					theRunner = allocatedFunds.find(funds => {
-						return (String(funds.marketId) === String(sidePriceMarket.marketId))
-							&& (String(funds.selectionId) === String(runner.selectionId));
-					});
+		response = await bettingApi.placeOrders({
+			marketId: sideAndAvgPriceForMarkets[0].marketId,
+			instructions: sideAndAvgPriceForMarkets[0].runners.map(runner => {
+				theRunner = allocatedFunds.find(funds => {
+					return (String(funds.marketId) === String(sideAndAvgPriceForMarkets[0].marketId))
+						&& (String(funds.selectionId) === String(runner.selectionId));
+				});
 
-					return {
-						orderType: "LIMIT",
-						selectionId: runner.selectionId,
-						side: runner.side,
-						limitOrder: {
-							size: theRunner.toBet,
-							price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
-							persistenceType: "PERSIST"								// No going back...
-						}
+				return {
+					orderType: "LIMIT",
+					selectionId: runner.selectionId,
+					side: runner.side,
+					limitOrder: {
+						size: theRunner.toBet,
+						price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
+						persistenceType: "PERSIST"										// No going back...
 					}
-				}),
-				async: false
-			};
-
-			console.log("------------------");
-			console.log("::: placeOrder :::");
-			console.log(placeOrder);
-			console.log("------------------");
+				}
+			}),
+			async: false
 		});
+		// sideAndAvgPriceForMarkets.forEach(async (sidePriceMarket) => {
+		// 	response = await bettingApi.placeOrders({
+		// 		marketId: sidePriceMarket.marketId,
+		// 		instructions: sidePriceMarket.runners.map(runner => {
+		// 			theRunner = allocatedFunds.find(funds => {
+		// 				return (String(funds.marketId) === String(sidePriceMarket.marketId))
+		// 					&& (String(funds.selectionId) === String(runner.selectionId));
+		// 			});
 
-		// if (response.data.error) {
-		// 	throw new BettingAPINGException(response.data.error, BettingOperations.PLACE_ORDERS);
-		// }
-		// return response.data.result;
+		// 			return {
+		// 				orderType: "LIMIT",
+		// 				selectionId: runner.selectionId,
+		// 				side: runner.side,
+		// 				limitOrder: {
+		// 					size: theRunner.toBet,
+		// 					price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
+		// 					persistenceType: "PERSIST"										// No going back...
+		// 				}
+		// 			}
+		// 		}),
+		// 		async: false
+		// 	});
+		// });
+
+		if (response.data.error) {
+			throw new BettingAPINGException(response.data.error, BettingOperations.PLACE_ORDERS);
+		}
+		if (response.data.result.status === "FAILURE") {
+			throw new PlaceExecutionReport(response.data.result, BettingOperations.PLACE_ORDERS);
+		}
+		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw {
+			...err,
+			stack: trace()
+		};
+	}
+}
+
+function fixApiCall(error) {
+	switch (error.code) {
+		// MarketFilter has too little restrictions
+		case "TOO_MUCH_DATA":
+			console.log(error);
+			break;
+		case "INSUFFICIENT_FUNDS":
+			// Inform user...AWS SES?
+			break;
+		default:
+			break;
 	}
 }
 
@@ -275,6 +329,9 @@ export async function init() {
 
 		await placeBets(marketsWithBestOdds, accountFundsToBet);
     } catch(err) {
-        log(error(err.message));
+		fixApiCall(err);
+		console.error(err);
+		// console.error(err);
+        // log(error(err.message));
     }
 }

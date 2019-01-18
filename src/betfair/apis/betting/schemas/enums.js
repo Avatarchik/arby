@@ -120,15 +120,12 @@ const Side = {
 
 const PersistenceType = {
     "id": "/PersistenceType",
-    "type": "array",
-    "items": {
-        "type": "string",
-        "enum": [
-            "LAPSE",
-            "PERSIST",
-            "MARKET_ON_CLOSE"
-        ]
-    }
+    "type": "string",
+    "enum": [
+        "LAPSE",
+        "PERSIST",
+        "MARKET_ON_CLOSE"
+    ]
 };
 
 const TimeInForce = {

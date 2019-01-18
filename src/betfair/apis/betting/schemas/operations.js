@@ -218,8 +218,8 @@ const listRunnerBook = {
     }
 };
 
-const placeOrder = {
-    "id": "/placeOrder",
+const placeOrders = {
+    "id": "/placeOrders",
     "type": "object",
     "properties": {
         // The unique identifier for the market. MarketId's are prefixed with '1.' or '2.' ('1.' = UK Exchange, '2.' = AUS Exchange) 
@@ -269,5 +269,5 @@ export default {
     listMarketTypes,
     listMarketCatalogue,
     listRunnerBook,
-    placeOrder
+    placeOrders
 }
