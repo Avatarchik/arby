@@ -13,11 +13,14 @@ import MarketFilter from "./apis/betting/marketFilter";
 
 import {
 	getMarketIdsFromCatalogues,
-	buildMarkets,
-	calculateBestOdds,
+	buildMarkets as buildCompleteMarkets,
+	getMarketsWithBackRunnerBelowThreshold,
 	getFundsToSpend,
 	getSideAndAvgPriceForMarkets,
-	allocateFundsPerRunner
+	allocateFundsPerRunner,
+	findRunnersToBack,
+	findRunnersToLay,
+	findBackerForEachMarket
 } from "../../lib/helpers";
 
 const log = console.log;
@@ -194,7 +197,7 @@ async function placeBets(markets, funds) {
 
 	let response;
 	let fundsToSpends = getFundsToSpend(fakeFunds);
-	let sideAndAvgPriceForMarkets = getSideAndAvgPriceForMarkets(markets);
+	let sideAndAvgPriceForMarkets = getSideAndAvgPriceForMarkets(markets, fakeFunds);
 	let allocatedFunds = allocateFundsPerRunner(sideAndAvgPriceForMarkets, fundsToSpends);
 	let theRunner;
 
@@ -279,15 +282,16 @@ export async function init() {
 	let marketIds;
 	let marketBooks;
 	let runners;
-	let matchOddsMarkets;
-
-	// Lay price will be higher (worse chances...better payouts) than back price
+	let completeMarkets;
 	let backPriceLimit = 2;
 	let layPriceLimit = 6;
 	let marketsWithBestOdds;
 	let events;
 	let eventTypes;
 	let marketTypes;
+	let testMarkets;
+	let marketsWithBackers;
+
 
     api = new Api();
     api.initAxios();
@@ -314,9 +318,9 @@ export async function init() {
         marketBooks = await getMarketBooks(marketIds);
 		// runners = await getRunnerBooks(marketBooks);
 		
-		matchOddsMarkets = buildMarkets(marketCatalogues, marketBooks);
-
-		marketsWithBestOdds = calculateBestOdds(matchOddsMarkets, 2);
+		completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
+		marketsWithBestOdds = getMarketsWithBackRunnerBelowThreshold(completeMarkets, 2);
+		marketsWithBackers = findBackerForEachMarket(marketsWithBestOdds);
 
 		await placeBets(marketsWithBestOdds, accountFundsToBet);
     } catch(err) {
