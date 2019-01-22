@@ -1,16 +1,9 @@
-import moment from "moment";
-
 import { MarketBettingTypes, EventTypeIds } from "./config";
 
 export default class MarketFilter {
-    constructor(eventTypeIds, eventIds) {
+    constructor(eventIds) {
         this.filter = {
-            eventTypeIds,
             eventIds,
-            marketStartTime: {
-                from: moment().startOf("day").format(),
-                to: moment().endOf("day").format()
-            },
             marketBettingTypes: [
                 MarketBettingTypes.ODDS
             ],

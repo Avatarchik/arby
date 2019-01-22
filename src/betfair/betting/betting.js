@@ -1,12 +1,12 @@
 import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
-import BetfairApi from "../../api";
+import BetfairApi from "../api";
 import { Operations } from "./config";
 
-import TypeDefinitionSchemas from "../../../../models/betting/typeDefs";
-import EnumSchemas from "../../../../models/betting/enums";
-import OperationSchemas from "../../../../models/betting/operations";
+import TypeDefinitionSchemas from "../../../models/betting/typeDefs";
+import EnumSchemas from "../../../models/betting/enums";
+import OperationSchemas from "../../../models/betting/operations";
 
 /**
  * Class representing the Betting API
@@ -98,20 +98,6 @@ export default class BettingAPI {
 	 * @returns {Array} List of dynamic data about markets. Dynamic data includes; prices, status of market, status of elections, traded volume, and status of any orders you have places in market
 	 */
 	async listMarketBook(params) {
-		const {
-			marketIds,
-			priceProjection,
-			orderProjection,
-			matchProjection,
-			includeOverallPosition,
-			partitionMatchedByStrategyRef,
-			customerStrategyRefs,
-			currencyCode,
-			locale,
-			matchedSince,
-			betIds
-		} = params;
-
 		try {
 			await this.validateParams(Operations.LIST_MARKET_BOOK, params);
 

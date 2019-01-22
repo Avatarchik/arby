@@ -1,11 +1,11 @@
 import jsonschema from "jsonschema";
 import { forEach, reduce } from "lodash"; 
 
-import BetfairApi from "../../api";
+import BetfairApi from "../api";
 import { Operations } from "./config";
 
-import EnumSchemas from "../../../../models/account/enums";
-import OperationSchemas from "../../../../models/account/operations";
+import EnumSchemas from "../../../models/account/enums";
+import OperationSchemas from "../../../models/account/operations";
 
 export default class AccountsAPI {
 	constructor() {

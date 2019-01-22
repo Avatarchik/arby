@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export default class Api {
+export default class BetfairApi {
     constructor() {
         if (!Api.instance) {
             Api.instance = this;

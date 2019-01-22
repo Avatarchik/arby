@@ -1,23 +1,27 @@
 import moment from "moment";
 import chalk from "chalk";
+import scheduler from "node-schedule";
+import { forOwn } from "lodash";
 
-import BettingApi from "./apis/betting/betting";
-import AccountsApi from "./apis/accounts/accounts";
-import Api from "./api";
-import { EventTypeIds, MarketProjections, MarketSort } from "./apis/betting/config";
-import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./apis/betting/exceptions";
-import { APINGException as AccountAPINGException } from "./apis/accounts/exceptions";
-import { Operations as BettingOperations } from "./apis/betting/config";
-import { Operations as AccountOperations } from "./apis/accounts/config";
-import MarketFilter from "./apis/betting/marketFilter";
+import BettingApi from "./betting/betting";
+import AccountsApi from "./accounts/accounts";
+import BetfairApi from "./api";
+import { EventTypeIds, MarketProjections, MarketSort } from "./betting/config";
+import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./betting/exceptions";
+import { APINGException as AccountAPINGException } from "./accounts/exceptions";
+import { Operations as BettingOperations } from "./betting/config";
+import { Operations as AccountOperations } from "./accounts/config";
+import MarketFilter from "./betting/marketFilter";
+import BetfairConfig from "./config";
 
 import {
 	getMarketIdsFromCatalogues,
 	buildCompleteMarkets,
 	getMarketsWithBackRunnerBelowThreshold,
-	getFundsToSpend,
 	allocateFundsPerRunner,
-	findBackerForEachMarket
+	findBackerForEachMarket,
+	determineMarketsToPlaceOrder,
+	extractSchedules
 } from "../../lib/helpers";
 
 const log = console.log;
@@ -63,63 +67,17 @@ async function getAccountFunds() {
 	}
 }
 
-// async function getMarketTypes() {
-// 	let response;
-
-// 	try {
-// 		response = await bettingApi.listMarketTypes({
-// 			filter: {
-// 				eventTypeIds: [
-// 					EventTypeIds.HORSE_RACING
-// 				]
-// 			}
-// 		});
-
-// 		if (response.data.error) {
-// 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_MARKET_TYPES);
-// 		}
-// 		return response.data.result;
-// 	} catch(err) {
-// 		throw {
-// 			...err,
-// 			stack: console.trace()
-// 		};
-// 	}
-// }
-
-// async function getEventTypes() {
-// 	let response;
-
-//     try {
-// 		response = await bettingApi.listEventTypes({
-// 			filter: {
-// 				eventTypeIds: [
-// 					EventTypeIds.SOCCER
-// 				]
-// 			}
-// 		});
-
-// 		if (response.data.error) {
-// 			throw new BettingAPINGException(response.data.error, BettingOperations.LIST_EVENT_TYPES);
-// 		}
-// 		return response.data.result;
-// 	} catch(err) {
-// 		throw {
-// 			...err,
-// 			stack: trace()
-// 		};
-// 	}
-// }
-
-async function getEvents() {
+async function getEvents(eventTypeIds) {
 	let response;
 
     try {
 		response = await bettingApi.listEvents({
 			filter: {
-				eventTypeIds: [
-					EventTypeIds.SOCCER
-				]
+				eventTypeIds,
+				marketStartTime: {
+					from: moment().startOf("day").format(),
+					to: moment().endOf("day").format()
+				},
 			}
 		});
 
@@ -137,6 +95,7 @@ async function getMarketCatalogues(filter) {
 		response = await bettingApi.listMarketCatalogue({
 			filter,
 			marketProjection: [
+				MarketProjections.EVENT_TYPE,
 				MarketProjections.EVENT,
 				MarketProjections.MARKET_START_TIME,
 				MarketProjections.MARKET_DESCRIPTION,
@@ -173,26 +132,8 @@ async function getMarketBooks(marketIds) {
 	}
 }
 
-// async function getRunnerBooks(marketBooks) {
-//     let response;
-
-//     try {
-// 		response = await bettingApi.listRunnerBook({
-// 			marketId: marketBooks[0].marketId,
-// 			selectionId: String(marketBooks[0].runners[0].selectionId)
-// 		});
-
-// 		checkForError(response, BettingOperations.LIST_RUNNER_BOOK, BettingAPINGException);
-// 		return response.data.result;
-// 	} catch(err) {
-// 		throw err;
-// 	}
-// }
-
 async function placeBets(markets, funds) {
-	const fakeFunds = 100;
-	const fundsToSpends = getFundsToSpend(fakeFunds);
-	const marketsWithAllocatedFunds = allocateFundsPerRunner(markets, fundsToSpends);
+	const marketsWithAllocatedFunds = allocateFundsPerRunner(markets, funds);
 
 	let response;
 
@@ -241,59 +182,106 @@ async function fixApiCall(error) {
 	}
 }
 
-export async function init() {
-	let accountFundsToBet;
-	let eventTypeIds;
+function resolveScheduledJob(fired) {
+	
+}
+
+function setupScheduleJobs() {
+	const betfairConfig = new BetfairConfig();
+
+	let dateToSchedule;
+
+	forOwn(betfairConfig.schedules, (schedules, key) => {
+		schedules.forEach(schedule => {
+			dateToSchedule = new Date(schedule);
+
+			scheduler.scheduleJob(dateToSchedule, resolveScheduledJob);
+		});
+	});
+}
+
+export async function setupDayBetting() {
+	const fakeFunds = 100;
+	const betfairConfig = new BetfairConfig();
+	const eventTypes = [
+		EventTypeIds.SOCCER
+	];
+
 	let eventIds;
 	let marketCatalogues;
 	let marketIds;
 	let marketBooks;
-	let runners;
 	let completeMarkets;
-	let backPriceLimit = 2;
-	let layPriceLimit = 6;
-	let marketsWithBestOdds;
 	let events;
-	let eventTypes;
-	let marketTypes;
-	let testMarkets;
+
+    try {
+		accountFunds = await getAccountFunds();
+
+		betfairConfig.fundsAvailableToBet = 100;
+		// betfairConfig.fundsAvailableToBet = accountFunds.availableToBetBalance;
+		betfairConfig.percentOfFundsToSave = 0.35;
+
+		events = await getEvents(eventTypes);
+		eventIds = events.map(event => event.event.id);
+
+		marketFilter = new MarketFilter(eventIds);
+		marketCatalogues = await getMarketCatalogues(marketFilter.filter);
+
+		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
+		marketBooks = await getMarketBooks(marketIds);
+		
+		completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
+
+		betfairConfig.schedules = extractSchedules(completeMarkets);
+
+		return completeMarkets;
+    } catch(err) {
+		fixApiCall(err);
+		console.error(err);
+    }
+}
+
+export async function initMatchOddsScalping() {
+	try {
+		await setupDayBetting();
+		setupScheduleJobs();
+	} catch(err) {
+		console.error(err);
+	}
+}
+
+export async function init() {
+	const betfairConfig = new BetfairConfig();
+
+	let markets;
+	let marketsWithBestOdds;
 	let marketsWithBackers;
+	let marketsToPlaceOrders;
 
-
-    api = new Api();
+    api = new BetfairApi();
     api.initAxios();
     
     bettingApi = new BettingApi();
     accountApi = new AccountsApi();
 
     try {
-		// Account
-		accountFundsToBet = await getAccountFunds();
+		markets = await setupDayBetting();
 
-		// marketTypes = await getMarketTypes();
-		events = await getEvents();
-		eventIds = events.map(event => event.event.id);
-
-		// marketFilter = getFullMarketFilter(events);
-		marketFilter = new MarketFilter([
-			EventTypeIds.SOCCER
-		], eventIds);
-		marketCatalogues = await getMarketCatalogues(marketFilter.filter);
-
-		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
-
-        marketBooks = await getMarketBooks(marketIds);
-		// runners = await getRunnerBooks(marketBooks);
-		
-		completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
-		marketsWithBestOdds = getMarketsWithBackRunnerBelowThreshold(completeMarkets, 2);
+		marketsWithBestOdds = getMarketsWithBackRunnerBelowThreshold(markets, 2);
 		marketsWithBackers = findBackerForEachMarket(marketsWithBestOdds);
+		marketsToPlaceOrders = determineMarketsToPlaceOrder(marketsWithBackers, betfairConfig.fundsAllowedToBet, 2);
 
-		await placeBets(marketsWithBackers, accountFundsToBet);
+		await placeBets(marketsToPlaceOrders, betfairConfig.fundsAllowedToBet);
     } catch(err) {
 		fixApiCall(err);
 		console.error(err);
 		// console.error(err);
         // log(error(err.message));
     }
+}
+
+export default class Betfair {
+	constructor() {
+
+	}
 }
