@@ -78,6 +78,12 @@ export const MarketProjections = {
     RUNNER_METADATA: "RUNNER_METADATA"
 };
 
+export const OrderType = {
+    LIMIT: "LIMIT",
+    LIMIT_ON_CLOSE: "LIMIT_ON_CLOSE",
+    MARKET_ON_CLOSE: "MARKET_ON_CLOSE"
+};
+
 export const MarketTypes = {
     Soccer: {
         WINNER: "WINNER",

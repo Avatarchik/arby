@@ -13,13 +13,10 @@ import MarketFilter from "./apis/betting/marketFilter";
 
 import {
 	getMarketIdsFromCatalogues,
-	buildMarkets as buildCompleteMarkets,
+	buildCompleteMarkets,
 	getMarketsWithBackRunnerBelowThreshold,
 	getFundsToSpend,
-	getSideAndAvgPriceForMarkets,
 	allocateFundsPerRunner,
-	findRunnersToBack,
-	findRunnersToLay,
 	findBackerForEachMarket
 } from "../../lib/helpers";
 
@@ -194,58 +191,28 @@ async function getMarketBooks(marketIds) {
 
 async function placeBets(markets, funds) {
 	const fakeFunds = 100;
+	const fundsToSpends = getFundsToSpend(fakeFunds);
+	const marketsWithAllocatedFunds = allocateFundsPerRunner(markets, fundsToSpends);
 
 	let response;
-	let fundsToSpends = getFundsToSpend(fakeFunds);
-	let sideAndAvgPriceForMarkets = getSideAndAvgPriceForMarkets(markets, fakeFunds);
-	let allocatedFunds = allocateFundsPerRunner(sideAndAvgPriceForMarkets, fundsToSpends);
-	let theRunner;
 
 	try {
 		response = await bettingApi.placeOrders({
-			marketId: sideAndAvgPriceForMarkets[0].marketId,
-			instructions: sideAndAvgPriceForMarkets[0].runners.map(runner => {
-				theRunner = allocatedFunds.find(funds => {
-					return (String(funds.marketId) === String(sideAndAvgPriceForMarkets[0].marketId))
-						&& (String(funds.selectionId) === String(runner.selectionId));
-				});
-
-				return {
+			marketId: marketsWithAllocatedFunds[0].marketId,
+			instructions: [
+				{
 					orderType: "LIMIT",
-					selectionId: runner.selectionId,
-					side: runner.side,
+					selectionId: String(marketsWithAllocatedFunds[0].runnerToBack.selectionId),
+					side: "BACK",
 					limitOrder: {
-						size: theRunner.toBet,
-						price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
+						size: Number(marketsWithAllocatedFunds[0].runnerToBack.priceToBet),
+						price: marketsWithAllocatedFunds[0].runnerToBack.lowestPrice,		// 20% of the current market price...
 						persistenceType: "PERSIST"										// No going back...
 					}
 				}
-			}),
+			],
 			async: false
 		});
-		// sideAndAvgPriceForMarkets.forEach(async (sidePriceMarket) => {
-		// 	response = await bettingApi.placeOrders({
-		// 		marketId: sidePriceMarket.marketId,
-		// 		instructions: sidePriceMarket.runners.map(runner => {
-		// 			theRunner = allocatedFunds.find(funds => {
-		// 				return (String(funds.marketId) === String(sidePriceMarket.marketId))
-		// 					&& (String(funds.selectionId) === String(runner.selectionId));
-		// 			});
-
-		// 			return {
-		// 				orderType: "LIMIT",
-		// 				selectionId: runner.selectionId,
-		// 				side: runner.side,
-		// 				limitOrder: {
-		// 					size: theRunner.toBet,
-		// 					price: (theRunner.avgPrice + (theRunner.avgPrice * 0.2)),		// 20% of the current market price...
-		// 					persistenceType: "PERSIST"										// No going back...
-		// 				}
-		// 			}
-		// 		}),
-		// 		async: false
-		// 	});
-		// });
 
 		checkForError(response, BettingOperations.PLACE_ORDERS, BettingAPINGException);
 		return response.data.result;
@@ -322,7 +289,7 @@ export async function init() {
 		marketsWithBestOdds = getMarketsWithBackRunnerBelowThreshold(completeMarkets, 2);
 		marketsWithBackers = findBackerForEachMarket(marketsWithBestOdds);
 
-		await placeBets(marketsWithBestOdds, accountFundsToBet);
+		await placeBets(marketsWithBackers, accountFundsToBet);
     } catch(err) {
 		fixApiCall(err);
 		console.error(err);

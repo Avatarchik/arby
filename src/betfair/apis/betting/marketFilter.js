@@ -14,9 +14,9 @@ export default class MarketFilter {
             marketBettingTypes: [
                 MarketBettingTypes.ODDS
             ],
-            // marketCountries: [
-            //     "GB"
-            // ],
+            marketCountries: [
+                "GB"
+            ],
             marketTypeCodes: [
                 "MATCH_ODDS"
             ]
