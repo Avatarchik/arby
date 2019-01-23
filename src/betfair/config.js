@@ -1,3 +1,5 @@
+import { BetfairApi, FootballApi } from "./api";
+
 export default class BetfairConfig {
     constructor() {
         this._minimumBetSize = 2;                    // Set by Betfair Exchange...
@@ -5,6 +7,8 @@ export default class BetfairConfig {
         this._defaultCountryCode = "GB";
         // this.spreadBetting = 0.5;
         this.riskLevelPercent = 0.25;
+        this._betfairApi = new BetfairApi();
+        this._footballApi = new FootballApi();
         // this.backPriceLimit = 2;
         // this.layPriceLimit = 30;
 
@@ -36,8 +40,15 @@ export default class BetfairConfig {
 
     get schedules() { return this._schedules; }
     get fundsAllowedToBet() { return this._fundsAllowedToBet; }
+    get footballApi() { return this._footballApi; }
+    get betfairApi() { return this._betfairApi; }
 
     calculatateFundsAllowedToBet() {
         this._fundsAllowedToBet = (this._fundsAvailableToBet - (this._fundsAvailableToBet * this._percentOfFundsToSave)).toFixed(2);
+    }
+
+    initApis() {
+        this.betfairApi.initAxios();
+        this.footballApi.initAxios();
     }
 }

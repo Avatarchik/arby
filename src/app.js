@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cors from "cors";
 import chalk from "chalk";
 import { Login } from "betfair-js-login";
+import schedule from "node-schedule";
 
 import { init } from "./betfair";
 
@@ -20,7 +21,10 @@ const log = console.log;
 
 	process.env.BF_SESSIONTOKEN = await loginClient.login();
 
-	init();
+	// Runs everyday at midnight
+	// schedule.scheduleJob("0 0 * * *", () => {
+		init();
+	// });
 })();
 
 app.use(bodyParser.json());

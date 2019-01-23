@@ -5,7 +5,6 @@ import { forOwn } from "lodash";
 
 import BettingApi from "./betting/betting";
 import AccountsApi from "./accounts/accounts";
-import BetfairApi from "./api";
 import { EventTypeIds, MarketProjections, MarketSort } from "./betting/config";
 import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./betting/exceptions";
 import { APINGException as AccountAPINGException } from "./accounts/exceptions";
@@ -13,6 +12,7 @@ import { Operations as BettingOperations } from "./betting/config";
 import { Operations as AccountOperations } from "./accounts/config";
 import MarketFilter from "./betting/marketFilter";
 import BetfairConfig from "./config";
+import { handleApiException } from "./exceptions";
 
 import {
 	getMarketIdsFromCatalogues,
@@ -24,15 +24,10 @@ import {
 	extractSchedules
 } from "../../lib/helpers";
 
-const log = console.log;
-const error = chalk.bold.red;
-const warning = chalk.keyword("orange");
-const info = chalk.bold.blueBright;
-
 let bettingApi;
 let accountApi;
-let api;
 let marketFilter;
+let betfairConfig;
 
 function checkForError(resp, operation, apiException) {
 	if (resp.data.error) {
@@ -162,26 +157,6 @@ async function placeBets(markets, funds) {
 	}
 }
 
-async function fixApiCall(error) {
-	try {
-		switch (error.code) {
-			// MarketFilter has too little restrictions
-			case "TOO_MUCH_DATA":
-				// console.log(error);
-				// marketFilter.addFilter(bettingApi);
-				// await placeBets()
-				break;
-			case "INSUFFICIENT_FUNDS":
-				// Inform user...AWS SES?
-				break;
-			default:
-				break;
-		}
-	} catch(err) {
-		fixApiCall(err);
-	}
-}
-
 function resolveScheduledJob(fired) {
 	
 }
@@ -236,8 +211,9 @@ export async function setupDayBetting() {
 
 		return completeMarkets;
     } catch(err) {
-		fixApiCall(err);
-		console.error(err);
+		handleApiException(err);
+		// fixApiCall(err);
+		// console.error(err);
     }
 }
 
@@ -251,15 +227,14 @@ export async function initMatchOddsScalping() {
 }
 
 export async function init() {
-	const betfairConfig = new BetfairConfig();
+	betfairConfig = new BetfairConfig();
 
 	let markets;
 	let marketsWithBestOdds;
 	let marketsWithBackers;
 	let marketsToPlaceOrders;
 
-    api = new BetfairApi();
-    api.initAxios();
+    betfairConfig.initApis();
     
     bettingApi = new BettingApi();
     accountApi = new AccountsApi();
