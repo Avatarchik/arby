@@ -1,19 +1,22 @@
 import moment from "moment";
-import chalk from "chalk";
 import scheduler from "node-schedule";
 import { forOwn } from "lodash";
 
 import BettingApi from "./betting/betting";
 import AccountsApi from "./accounts/accounts";
-import { EventTypeIds, MarketProjections, MarketSort } from "./betting/config";
-import { APINGException as BettingAPINGException, PlaceExecutionReport } from "./betting/exceptions";
-import { APINGException as AccountAPINGException } from "./accounts/exceptions";
-import { Operations as BettingOperations } from "./betting/config";
-import { Operations as AccountOperations } from "./accounts/config";
 import MarketFilter from "./betting/marketFilter";
 import BetfairConfig from "./config";
-import { handleApiException } from "./exceptions";
-
+import { handleApiException, checkForException, getException } from "./exceptions";
+import {
+	MarketProjection,
+	PriceData,
+	OrderType,
+	Side,
+	PersistenceType,
+	EventTypes,
+	Operations as BettingOperations
+} from "../../lib/enums/betting";
+import { Operations as AccountOperations } from "../../lib/enums/account";
 import {
 	getMarketIdsFromCatalogues,
 	buildCompleteMarkets,
@@ -29,131 +32,127 @@ let accountApi;
 let marketFilter;
 let betfairConfig;
 
-function checkForError(resp, operation, apiException) {
-	if (resp.data.error) {
-		throw new apiException(resp.data.error, operation);
-	}
-	if ((resp.data.result instanceof Array && !resp.data.result.length)
-		|| (resp.data.result instanceof Object && !Object.keys(resp.data.result).length)) {
-		throw {
-			code: "NO_DATA",
-			operation,
-			message: "There were no results retrieved from this operation",
-			stack: new Error().stack
-		}
-	}
-	if (resp.data.result.status === "FAILURE") {
-		throw new PlaceExecutionReport(resp.data.result, operation)
-	}
-}
-
 async function getAccountFunds() {
-    let response;
+	const params = {
+		filter: {}
+	};
+	const type = "account";
+
+	let response;
     
     try {
-		response = await accountApi.getAccountFunds({
-			filter: {}
-		});
+		response = await accountApi.getAccountFunds(params);
 
-		checkForError(response, AccountOperations.GET_ACCOUNT_FUNDS, AccountAPINGException);
+		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type);
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw getException(err, params, type);
 	}
 }
 
 async function getEvents(eventTypeIds) {
+	const params = {
+		filter: {
+			eventTypeIds,
+			marketStartTime: {
+				from: moment().startOf("day").format(),
+				to: moment().endOf("day").format()
+			},
+		}
+	};
+	const type = "betting";
+
 	let response;
 
     try {
-		response = await bettingApi.listEvents({
-			filter: {
-				eventTypeIds,
-				marketStartTime: {
-					from: moment().startOf("day").format(),
-					to: moment().endOf("day").format()
-				},
-			}
-		});
+		response = await bettingApi.listEvents(params);
 
-		checkForError(response, BettingOperations.LIST_EVENTS, BettingAPINGException);
+		checkForException(response, BettingOperations.LIST_EVENTS, type);
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw getException(err, params, type);
 	}
 }
 
 async function getMarketCatalogues(filter) {
+	const params = {
+		filter,
+		marketProjection: [
+			MarketProjection.EVENT_TYPE.val,
+			MarketProjection.EVENT.val,
+			MarketProjection.MARKET_START_TIME.val,
+			MarketProjection.MARKET_DESCRIPTION.val,
+			MarketProjection.RUNNER_DESCRIPTION.val,
+		],
+		maxResults: 100
+	};
+	const type = "betting";
+
 	let response;
 
     try {
-		response = await bettingApi.listMarketCatalogue({
-			filter,
-			marketProjection: [
-				MarketProjections.EVENT_TYPE,
-				MarketProjections.EVENT,
-				MarketProjections.MARKET_START_TIME,
-				MarketProjections.MARKET_DESCRIPTION,
-				MarketProjections.RUNNER_DESCRIPTION,
-			],
-			maxResults: 100
-		});
+		response = await bettingApi.listMarketCatalogue(params);
 
-		checkForError(response, BettingOperations.LIST_MARKET_CATALOGUE, BettingAPINGException);
+		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type);
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw getException(err, params, type);
 	}
 }
 
 async function getMarketBooks(marketIds) {
+	const params = {
+		marketIds,
+		priceProjection: {
+			priceData: [
+				PriceData.EX_BEST_OFFERS.val
+			]
+		}
+		//orderProjection: "ALL"
+	};
+	const type = "betting";
+
 	let response;
 
     try {
-		response = await bettingApi.listMarketBook({
-			marketIds,
-			priceProjection: {
-				priceData: [
-					"EX_BEST_OFFERS"
-				]
-			}
-			//orderProjection: "ALL"
-		});
+		response = await bettingApi.listMarketBook(params);
 
-		checkForError(response, BettingOperations.LIST_MARKET_BOOK, BettingAPINGException);
+		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type);
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw getException(err, params, type);
 	}
 }
 
 async function placeBets(markets, funds) {
 	const marketsWithAllocatedFunds = allocateFundsPerRunner(markets, funds);
+	const params = {
+		marketId: marketsWithAllocatedFunds[0].marketId,
+		instructions: [
+			{
+				orderType: OrderType.LIMIT.val,
+				selectionId: String(marketsWithAllocatedFunds[0].runnerToBack.selectionId),
+				side: Side.BACK.val,
+				limitOrder: {
+					size: Number(marketsWithAllocatedFunds[0].runnerToBack.priceToBet),
+					price: marketsWithAllocatedFunds[0].runnerToBack.lowestPrice,		// 20% of the current market price...
+					persistenceType: PersistenceType.PERSIST.val						// No going back...
+				}
+			}
+		],
+		async: false
+	};
+	const type = "betting";
 
 	let response;
 
 	try {
-		response = await bettingApi.placeOrders({
-			marketId: marketsWithAllocatedFunds[0].marketId,
-			instructions: [
-				{
-					orderType: "LIMIT",
-					selectionId: String(marketsWithAllocatedFunds[0].runnerToBack.selectionId),
-					side: "BACK",
-					limitOrder: {
-						size: Number(marketsWithAllocatedFunds[0].runnerToBack.priceToBet),
-						price: marketsWithAllocatedFunds[0].runnerToBack.lowestPrice,		// 20% of the current market price...
-						persistenceType: "PERSIST"										// No going back...
-					}
-				}
-			],
-			async: false
-		});
+		response = await bettingApi.placeOrders(params);
 
-		checkForError(response, BettingOperations.PLACE_ORDERS, BettingAPINGException);
+		checkForException(response, BettingOperations.PLACE_ORDERS, type);
 		return response.data.result;
 	} catch(err) {
-		throw err;
+		throw getException(err, params, type);
 	}
 }
 
@@ -165,10 +164,12 @@ function setupScheduleJobs() {
 	const betfairConfig = new BetfairConfig();
 
 	let dateToSchedule;
+	let eventLength;
 
 	forOwn(betfairConfig.schedules, (schedules, key) => {
 		schedules.forEach(schedule => {
-			dateToSchedule = new Date(schedule);
+			eventLength = EventTypes[key.toUpperCase()].eventLength;
+			dateToSchedule = moment(schedule).add(eventLength, "m").toDate();
 
 			scheduler.scheduleJob(dateToSchedule, resolveScheduledJob);
 		});
@@ -179,7 +180,7 @@ export async function setupDayBetting() {
 	const fakeFunds = 100;
 	const betfairConfig = new BetfairConfig();
 	const eventTypes = [
-		EventTypeIds.SOCCER
+		EventTypes.SOCCER.id
 	];
 
 	let eventIds;
@@ -212,19 +213,17 @@ export async function setupDayBetting() {
 		return completeMarkets;
     } catch(err) {
 		handleApiException(err);
-		// fixApiCall(err);
-		// console.error(err);
     }
 }
 
-export async function initMatchOddsScalping() {
-	try {
-		await setupDayBetting();
-		setupScheduleJobs();
-	} catch(err) {
-		console.error(err);
-	}
-}
+// export async function initMatchOddsScalping() {
+// 	try {
+// 		await setupDayBetting();
+// 		setupScheduleJobs();
+// 	} catch(err) {
+// 		console.error(err);
+// 	}
+// }
 
 export async function init() {
 	betfairConfig = new BetfairConfig();
@@ -248,15 +247,6 @@ export async function init() {
 
 		await placeBets(marketsToPlaceOrders, betfairConfig.fundsAllowedToBet);
     } catch(err) {
-		fixApiCall(err);
-		console.error(err);
-		// console.error(err);
-        // log(error(err.message));
+		handleApiException(err);
     }
-}
-
-export default class Betfair {
-	constructor() {
-
-	}
 }

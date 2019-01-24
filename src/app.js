@@ -19,7 +19,8 @@ const log = console.log;
 		process.env.BF_APP_KEY_DELAY
 	);
 
-	process.env.BF_SESSIONTOKEN = await loginClient.login();
+	// process.env.BF_SESSIONTOKEN = await loginClient.login();
+	process.env.BF_SESSIONTOKEN = "TEST";
 
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {

@@ -1,12 +1,13 @@
 import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
-import BetfairApi from "../api";
-import { Operations } from "./config";
+import { BetfairApi } from "../api";
 
 import TypeDefinitionSchemas from "../../../models/betting/typeDefs";
 import EnumSchemas from "../../../models/betting/enums";
 import OperationSchemas from "../../../models/betting/operations";
+
+import { Operations } from "../../../lib/enums/betting";
 
 /**
  * Class representing the Betting API

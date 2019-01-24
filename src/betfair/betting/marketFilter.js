@@ -1,11 +1,11 @@
-import { MarketBettingTypes, EventTypeIds } from "./config";
+import { MarketBettingType, EventTypes } from "../../../lib/enums/betting";
 
 export default class MarketFilter {
     constructor(eventIds) {
         this.filter = {
             eventIds,
             marketBettingTypes: [
-                MarketBettingTypes.ODDS
+                MarketBettingType.ODDS.val
             ],
             marketCountries: [
                 "GB"
@@ -53,7 +53,7 @@ export default class MarketFilter {
     }
 
     addMarketTypeCodes(marketTypeCodes) {
-        if (this.filter.eventTypeIds.indexOf(EventTypeIds.SOCCER)) {
+        if (this.filter.eventTypeIds.indexOf(EventTypes.SOCCER.id)) {
             this.filter.marketTypeCodes = [
                 "MATCH_ODDS"
             ]
