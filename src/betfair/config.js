@@ -1,4 +1,5 @@
 import { BetfairApi, FootballApi } from "./api";
+import { Login } from "betfair-js-login";
 
 export default class BetfairConfig {
     constructor() {
@@ -35,7 +36,7 @@ export default class BetfairConfig {
         }
     }
 
-    set riskLevel(val) { this.riskLevel = val; }
+    set riskLevel(val) { this._riskLevel = val; }
     set schedules(val) { this._schedules = val; }
 
     get schedules() { return this._schedules; }
@@ -48,7 +49,19 @@ export default class BetfairConfig {
     }
 
     initApis() {
-        this.betfairApi.initAxios();
-        this.footballApi.initAxios();
+        this._betfairApi.initAxios();
+        this._footballApi.initAxios();
+    }
+
+    async login() {
+        const loginClient = new Login(
+            process.env.BF_USERNAME,
+            process.env.BF_PASSWORD,
+            process.env.BF_APP_KEY_DELAY
+        );
+
+        process.env.BF_SESSIONTOKEN = await loginClient.login();
+
+        this._betfairApi = new BetfairApi();
     }
 }

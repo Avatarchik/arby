@@ -1,7 +1,7 @@
 import jsonschema from "jsonschema";
 import { forEach, reduce } from "lodash"; 
 
-import { BetfairApi } from "../api";
+import BetfairConfig from "../config";
 
 import EnumSchemas from "../../../models/account/enums";
 import OperationSchemas from "../../../models/account/operations";
@@ -12,13 +12,13 @@ export default class AccountsAPI {
 	constructor() {
 		const Validator = jsonschema.Validator;
 
-		this.api = new BetfairApi();;
-		this.validator = new Validator({
+		this._config = new BetfairConfig();;
+		this._validator = new Validator({
 			throwError: true
 		});
 
-		forEach(EnumSchemas, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
-		forEach(OperationSchemas, (Operation, id) => this.validator.addSchema(Operation, Operation.id));
+		forEach(EnumSchemas, (Enum, id) => this._validator.addSchema(Enum, Enum.id));
+		forEach(OperationSchemas, (Operation, id) => this._validator.addSchema(Operation, Operation.id));
 	}
 
 	async getAccountFunds(params) {
@@ -40,7 +40,7 @@ export default class AccountsAPI {
 	}
 
 	buildRequestBody(operation, filters) {
-		return this.api.api.post(process.env.BF_API_ACCOUNT_JSONRPC_ENDPOINT, {
+		return this._config._betfairApi.api.post(process.env.BF_API_ACCOUNT_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `AccountAPING/v1.0/${operation}`,
@@ -57,7 +57,7 @@ export default class AccountsAPI {
 	}
 
 	validateParams(reqName, params) {
-		let validation = this.validator.validate(params, OperationSchemas[reqName]);
+		let validation = this._validator.validate(params, OperationSchemas[reqName]);
 
 		if (validation.error && validation.errors.length) {
 			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;

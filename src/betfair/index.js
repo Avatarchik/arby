@@ -17,66 +17,71 @@ import {
 	Operations as BettingOperations
 } from "../../lib/enums/betting";
 import { Operations as AccountOperations } from "../../lib/enums/account";
-import {
-	getMarketIdsFromCatalogues,
-	buildCompleteMarkets,
-	getMarketsWithBackRunnerBelowThreshold,
-	allocateFundsPerRunner,
-	findBackerForEachMarket,
-	determineMarketsToPlaceOrder,
-	extractSchedules
-} from "../../lib/helpers";
+import * as helpers from "../../lib/helpers";
+
+const eventTypes = [
+	EventTypes.SOCCER.id
+];
+const Account = "Account";
+const Betting = "Betting";
 
 let bettingApi;
 let accountApi;
-let marketFilter;
 let betfairConfig;
 
-async function getAccountFunds() {
+async function getAccountFunds(...args) {
 	const params = {
 		filter: {}
 	};
-	const type = "account";
+	const funcName = getAccountFunds.name
 
 	let response;
     
     try {
 		response = await accountApi.getAccountFunds(params);
 
-		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type);
-		return response.data.result;
+		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, Account);
+
+		betfairConfig.fundsAvailableToBet = 100;
+		// betfairConfig.fundsAvailableToBet = accountFunds.availableToBetBalance;
+		betfairConfig.percentOfFundsToSave = 0.35;
+
+		getEvents(eventTypes);
 	} catch(err) {
-		throw getException(err, params, type);
+		throw getException(err, params, Account, funcName, args);
 	}
 }
 
-async function getEvents(eventTypeIds) {
+async function getEvents(...args) {
 	const params = {
 		filter: {
-			eventTypeIds,
+			eventTypeIds: args[0],
 			marketStartTime: {
 				from: moment().startOf("day").format(),
 				to: moment().endOf("day").format()
 			},
 		}
 	};
-	const type = "betting";
+	const funcName = getEvents.name;
 
 	let response;
 
     try {
 		response = await bettingApi.listEvents(params);
 
-		checkForException(response, BettingOperations.LIST_EVENTS, type);
-		return response.data.result;
+		checkForException(response, BettingOperations.LIST_EVENTS, Betting);
+		getMarketCatalogues(response.data.result);
 	} catch(err) {
-		throw getException(err, params, type);
+		throw getException(err, params, Betting, funcName, args);
 	}
 }
 
-async function getMarketCatalogues(filter) {
+async function getMarketCatalogues(...args) {
+	const events = args[0];
+	const eventIds = events.map(event => event.event.id);
+	const marketFilter = new MarketFilter(eventIds);
 	const params = {
-		filter,
+		filter: marketFilter.filter,
 		marketProjection: [
 			MarketProjection.EVENT_TYPE.val,
 			MarketProjection.EVENT.val,
@@ -86,21 +91,22 @@ async function getMarketCatalogues(filter) {
 		],
 		maxResults: 100
 	};
-	const type = "betting";
 
 	let response;
 
     try {
 		response = await bettingApi.listMarketCatalogue(params);
 
-		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type);
-		return response.data.result;
+		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, Betting);
+		getMarketBooks(response.data.result);
 	} catch(err) {
-		throw getException(err, params, type);
+		throw getException(err, params, Betting);
 	}
 }
 
-async function getMarketBooks(marketIds) {
+async function getMarketBooks(...args) {
+	const marketCatalogues = args[0];
+	const marketIds = marketCatalogues.map(market => market.marketId)
 	const params = {
 		marketIds,
 		priceProjection: {
@@ -108,24 +114,27 @@ async function getMarketBooks(marketIds) {
 				PriceData.EX_BEST_OFFERS.val
 			]
 		}
-		//orderProjection: "ALL"
 	};
-	const type = "betting";
 
 	let response;
+	let completeMarkets;
 
     try {
 		response = await bettingApi.listMarketBook(params);
 
-		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type);
-		return response.data.result;
+		checkForException(response, BettingOperations.LIST_MARKET_BOOK, Betting);
+		// You can flag this as the ending point for this process. This entire string of functions is meant to be triggered
+		// at midnight to get a complete list of the games that day
+		completeMarkets = helpers.buildCompleteMarkets(marketCatalogues, response.data.result);
+
+		betfairConfig.schedules = helpers.extractSchedules(completeMarkets);
 	} catch(err) {
-		throw getException(err, params, type);
+		throw getException(err, params, Betting);
 	}
 }
 
 async function placeBets(markets, funds) {
-	const marketsWithAllocatedFunds = allocateFundsPerRunner(markets, funds);
+	const marketsWithAllocatedFunds = helpers.allocateFundsPerRunner(markets, funds);
 	const params = {
 		marketId: marketsWithAllocatedFunds[0].marketId,
 		instructions: [
@@ -142,17 +151,16 @@ async function placeBets(markets, funds) {
 		],
 		async: false
 	};
-	const type = "betting";
 
 	let response;
 
 	try {
 		response = await bettingApi.placeOrders(params);
 
-		checkForException(response, BettingOperations.PLACE_ORDERS, type);
+		checkForException(response, BettingOperations.PLACE_ORDERS, Betting);
 		return response.data.result;
 	} catch(err) {
-		throw getException(err, params, type);
+		throw getException(err, params, Betting);
 	}
 }
 
@@ -161,8 +169,6 @@ function resolveScheduledJob(fired) {
 }
 
 function setupScheduleJobs() {
-	const betfairConfig = new BetfairConfig();
-
 	let dateToSchedule;
 	let eventLength;
 
@@ -178,39 +184,26 @@ function setupScheduleJobs() {
 
 export async function setupDayBetting() {
 	const fakeFunds = 100;
-	const betfairConfig = new BetfairConfig();
-	const eventTypes = [
-		EventTypes.SOCCER.id
-	];
-
-	let eventIds;
-	let marketCatalogues;
-	let marketIds;
-	let marketBooks;
-	let completeMarkets;
-	let events;
 
     try {
-		accountFunds = await getAccountFunds();
+		// TODO: Renaming needed. This initial invocation cycles through all functions 1 after another
+		// Did it this way so that if there is an error, it will be able to be rectified and continue on from where left off
+		await getAccountFunds();
 
-		betfairConfig.fundsAvailableToBet = 100;
-		// betfairConfig.fundsAvailableToBet = accountFunds.availableToBetBalance;
-		betfairConfig.percentOfFundsToSave = 0.35;
+		// events = await getEvents(eventTypes);
+		// eventIds = events.map(event => event.event.id);
 
-		events = await getEvents(eventTypes);
-		eventIds = events.map(event => event.event.id);
+		// marketFilter = new MarketFilter(eventIds);
+		// marketCatalogues = await getMarketCatalogues(marketFilter.filter);
 
-		marketFilter = new MarketFilter(eventIds);
-		marketCatalogues = await getMarketCatalogues(marketFilter.filter);
-
-		marketIds = getMarketIdsFromCatalogues(marketCatalogues);
-		marketBooks = await getMarketBooks(marketIds);
+		// marketIds = getMarketIdsFromCatalogues(marketCatalogues);
+		// marketBooks = await getMarketBooks(marketIds);
 		
-		completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
+		// completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
 
-		betfairConfig.schedules = extractSchedules(completeMarkets);
+		// betfairConfig.schedules = extractSchedules(completeMarkets);
 
-		return completeMarkets;
+		// return completeMarkets;
     } catch(err) {
 		handleApiException(err);
     }
@@ -226,13 +219,14 @@ export async function setupDayBetting() {
 // }
 
 export async function init() {
-	betfairConfig = new BetfairConfig();
-
 	let markets;
 	let marketsWithBestOdds;
 	let marketsWithBackers;
 	let marketsToPlaceOrders;
 
+	betfairConfig = new BetfairConfig();
+
+	await betfairConfig.login();
     betfairConfig.initApis();
     
     bettingApi = new BettingApi();
@@ -241,9 +235,9 @@ export async function init() {
     try {
 		markets = await setupDayBetting();
 
-		marketsWithBestOdds = getMarketsWithBackRunnerBelowThreshold(markets, 2);
-		marketsWithBackers = findBackerForEachMarket(marketsWithBestOdds);
-		marketsToPlaceOrders = determineMarketsToPlaceOrder(marketsWithBackers, betfairConfig.fundsAllowedToBet, 2);
+		marketsWithBestOdds = helpers.getMarketsWithBackRunnerBelowThreshold(markets, 2);
+		marketsWithBackers = helpers.findBackerForEachMarket(marketsWithBestOdds);
+		marketsToPlaceOrders = helpers.determineMarketsToPlaceOrder(marketsWithBackers, betfairConfig.fundsAllowedToBet, 2);
 
 		await placeBets(marketsToPlaceOrders, betfairConfig.fundsAllowedToBet);
     } catch(err) {

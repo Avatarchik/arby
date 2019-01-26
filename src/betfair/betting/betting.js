@@ -1,7 +1,7 @@
 import jsonschema from "jsonschema";
 import { merge, forEach, map, reduce } from "lodash";
 
-import { BetfairApi } from "../api";
+import BetfairConfig from "../config";
 
 import TypeDefinitionSchemas from "../../../models/betting/typeDefs";
 import EnumSchemas from "../../../models/betting/enums";
@@ -16,14 +16,14 @@ export default class BettingAPI {
 	constructor() {
 		const Validator = jsonschema.Validator;
 
-		this.api = new BetfairApi();;
-		this.validator = new Validator({
+		this._config = new BetfairConfig();
+		this._validator = new Validator({
 			throwError: true
 		});
 
-		forEach(TypeDefinitionSchemas, (TypeDef, key) => this.validator.addSchema(TypeDef, TypeDef.id));
-		forEach(EnumSchemas, (Enum, id) => this.validator.addSchema(Enum, Enum.id));
-		forEach(OperationSchemas, (Operation, id) => this.validator.addSchema(Operation, Operation.id));
+		forEach(TypeDefinitionSchemas, (TypeDef, key) => this._validator.addSchema(TypeDef, TypeDef.id));
+		forEach(EnumSchemas, (Enum, id) => this._validator.addSchema(Enum, Enum.id));
+		forEach(OperationSchemas, (Operation, id) => this._validator.addSchema(Operation, Operation.id));
 	}
 
 	/**
@@ -199,7 +199,7 @@ export default class BettingAPI {
 	}
 
 	buildRequestBody(operation, filters) {
-		return this.api.api.post(process.env.BF_API_BETTING_JSONRPC_ENDPOINT, {
+		return this._config._betfairApi.api.post(process.env.BF_API_BETTING_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,
@@ -221,7 +221,7 @@ export default class BettingAPI {
 	 * @param {object} params 
 	 */
 	validateParams(reqName, params) {
-		let validation = this.validator.validate(params, OperationSchemas[reqName]);
+		let validation = this._validator.validate(params, OperationSchemas[reqName]);
 
 		if (validation.errors && validation.errors.length) {
 			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;

@@ -4,6 +4,7 @@ import {
 	JSON_RPCExceptions
 } from "../../lib/enums/exceptions";
 import { ExecutionReportErrorCode, InstructionReportErrorCode } from "../../lib/enums/betting";
+import BetfairConfig from "./config";
 
 function BettingException(error, operation) {
 	const { errorCode } = error.data.APINGException;
@@ -42,25 +43,27 @@ function PlaceExecutionReport(error, operation) {
     this.stack = new Error().stack;
 };
 
-export function getException(err, params, type) {
+export function getException(...args) {
 	// For some reason the spread operator does not work with 'err'
 	// Most likely because this is sometimes an instance of Error and not a 'true' object
 	return {
-		code: err.code,
-		message: err.message,
-		stack: err.stack,
-		operation: err.operation,
-		params,
-		type
+		code: args.err.code,
+		message: args.err.message,
+		stack: args.err.stack,
+		operation: args.err.operation,
+		params: args.params,
+		type: args.type,
+		funcName: args.funcName,
+		args: args.args
 	};
 
 }
 
 export function checkForException(resp, operation, type) {
 	if (resp.data.error) {
-		if (type === "account") {
+		if (type === "Account") {
 			throw new AccountException(resp.data.error, operation);
-		} else if (type === "betting") {
+		} else if (type === "Betting") {
 			throw new BettingException(resp.data.error, operation);
 		}
 	}
@@ -80,14 +83,20 @@ export function checkForException(resp, operation, type) {
 	}
 }
 
+function retryOperation() {
+
+}
+
 function handleAccountException(err) {
-	const { code, message, params, operation } = err;
+	const betfairConfig = new BetfairConfig();
+	const { code, message, params, operation, funcName, args } = err;
 
 	switch (code) {
 		case AccountEx.INVALID_SESSION_INFORMATION.val:
+			betfairConfig.login();
 			break;
 	}
-
+	retryOperation();
 }
 
 function handleBettingException(err) {
@@ -103,9 +112,9 @@ export function handleApiException(err) {
 
     try {
 		if (code) {
-			if (type === "account") {
+			if (type === "Account") {
 				handleAccountException(err);
-			} else if (type === "betting") {
+			} else if (type === "Betting") {
 				handleBettingException(err);
 			}
 			switch (code) {
