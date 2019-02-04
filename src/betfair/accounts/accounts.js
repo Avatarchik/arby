@@ -40,7 +40,7 @@ export default class AccountsAPI {
 	}
 
 	buildRequestBody(operation, filters) {
-		return this._config._betfairApi.api.post(process.env.BF_API_ACCOUNT_JSONRPC_ENDPOINT, {
+		return this._config._betfairApi.api.post(process.env.BETFAIR_ACCOUNT_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `AccountAPING/v1.0/${operation}`,

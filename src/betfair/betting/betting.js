@@ -133,7 +133,7 @@ export default class BettingAPI {
 	async listCurrentOrders(params) {
 		const { betIds, marketIds, orderProjection, customerOrderRefs, customerStrategyRefs, dateRange, orderBy, sortDir, fromRecord, recordCount } = params;
 
-		return this.api.post(process.env.BF_API_JSONRPC_ENDPOINT, {
+		return this.api.post(process.env.BETFAIR_API_JSONRPC_ENDPOINT, {
 			data: BettingAPI.buildRequestBody(Config.LIST_CURRENT_ORDERS, {
 				...(betIds && { betIds }),
 				...(marketIds && { marketIds }),
@@ -199,7 +199,7 @@ export default class BettingAPI {
 	}
 
 	buildRequestBody(operation, filters) {
-		return this._config._betfairApi.api.post(process.env.BF_API_BETTING_JSONRPC_ENDPOINT, {
+		return this._config._betfairApi.api.post(process.env.BETFAIR_BETTING_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,
