@@ -1,13 +1,20 @@
 import jsonschema from "jsonschema";
-import { merge, forEach, map, reduce } from "lodash";
+import {
+	merge,
+	forEach,
+	map,
+	reduce
+} from "lodash";
 
 import BetfairConfig from "../config";
 
-import TypeDefinitionSchemas from "../../../models/betting/typeDefs";
-import EnumSchemas from "../../../models/betting/enums";
-import OperationSchemas from "../../../models/betting/operations";
+import TypeDefinitionSchemas from "../../../../models/exchanges/betfair/betting/typeDefs";
+import EnumSchemas from "../../../../models/exchanges/betfair/betting/enums";
+import OperationSchemas from "../../../../models/exchanges/betfair/betting/operations";
 
-import { Operations } from "../../../lib/enums/betting";
+import {
+	Operations
+} from "../../../../lib/enums/exchanges/betfair/betting";
 
 /**
  * Class representing the Betting API
@@ -17,6 +24,7 @@ export default class BettingAPI {
 		const Validator = jsonschema.Validator;
 
 		this._config = new BetfairConfig();
+		this._api = this._config.api;
 		this._validator = new Validator({
 			throwError: true
 		});
@@ -38,8 +46,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_EVENT_TYPES, params);
 
-			return this.buildRequestBody(Operations.LIST_EVENT_TYPES, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_EVENT_TYPES, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -54,8 +62,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_COMPETITIONS, params);
 
-			return this.buildRequestBody(Operations.LIST_COMPETITIONS, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_COMPETITIONS, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -70,8 +78,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_EVENTS, params);
 
-			return this.buildRequestBody(Operations.LIST_EVENTS, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_EVENTS, params);
+		} catch (err) {
 			console.log(err);
 		}
 	}
@@ -86,8 +94,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params);
 
-			return this.buildRequestBody(Operations.LIST_MARKET_CATALOGUE, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_MARKET_CATALOGUE, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -102,8 +110,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_MARKET_BOOK, params);
 
-			return this.buildRequestBody(Operations.LIST_MARKET_BOOK, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_MARKET_BOOK, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -118,8 +126,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_RUNNER_BOOK, params);
 
-			return this.buildRequestBody(Operations.LIST_RUNNER_BOOK, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_RUNNER_BOOK, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -131,20 +139,51 @@ export default class BettingAPI {
 	 * @returns {Array} List of your current orders. Optionally you can filter & sort your current orders using the various parameters...more to go here but want to figure out multi line tags first
 	 */
 	async listCurrentOrders(params) {
-		const { betIds, marketIds, orderProjection, customerOrderRefs, customerStrategyRefs, dateRange, orderBy, sortDir, fromRecord, recordCount } = params;
+		const {
+			betIds,
+			marketIds,
+			orderProjection,
+			customerOrderRefs,
+			customerStrategyRefs,
+			dateRange,
+			orderBy,
+			sortDir,
+			fromRecord,
+			recordCount
+		} = params;
 
 		return this.api.post(process.env.BETFAIR_API_JSONRPC_ENDPOINT, {
 			data: BettingAPI.buildRequestBody(Config.LIST_CURRENT_ORDERS, {
-				...(betIds && { betIds }),
-				...(marketIds && { marketIds }),
-				...(orderProjection && { orderProjection }),
-				...(customerOrderRefs && { customerOrderRefs }),
-				...(customerStrategyRefs && { customerStrategyRefs }),
-				...(dateRange && { dateRange }),
-				...(orderBy && { orderBy }),
-				...(sortDir && { sortDir }),
-				...(fromRecord && { fromRecord }),
-				...(recordCount && { recordCount })
+				...(betIds && {
+					betIds
+				}),
+				...(marketIds && {
+					marketIds
+				}),
+				...(orderProjection && {
+					orderProjection
+				}),
+				...(customerOrderRefs && {
+					customerOrderRefs
+				}),
+				...(customerStrategyRefs && {
+					customerStrategyRefs
+				}),
+				...(dateRange && {
+					dateRange
+				}),
+				...(orderBy && {
+					orderBy
+				}),
+				...(sortDir && {
+					sortDir
+				}),
+				...(fromRecord && {
+					fromRecord
+				}),
+				...(recordCount && {
+					recordCount
+				})
 			})
 		})
 	}
@@ -159,8 +198,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.PLACE_ORDERS, params);
 
-			return this.buildRequestBody(Operations.PLACE_ORDERS, params);
-		} catch(err) {
+			return this.executeRequest(Operations.PLACE_ORDERS, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -175,8 +214,8 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.CANCEL_ORDERS, params);
 
-			return this.buildRequestBody(Operations.CANCEL_ORDERS, params);
-		} catch(err) {
+			return this.executeRequest(Operations.CANCEL_ORDERS, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
@@ -192,14 +231,14 @@ export default class BettingAPI {
 		try {
 			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
 
-			return this.buildRequestBody(Operations.LIST_MARKET_TYPES, params);
-		} catch(err) {
+			return this.executeRequest(Operations.LIST_MARKET_TYPES, params);
+		} catch (err) {
 			console.error(err);
 		}
 	}
 
-	buildRequestBody(operation, filters) {
-		return this._config._betfairApi.api.post(process.env.BETFAIR_BETTING_JSONRPC_ENDPOINT, {
+	executeRequest(operation, filters) {
+		return this._api.post(process.env.BETFAIR_BETTING_JSONRPC_ENDPOINT, {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,
@@ -208,7 +247,7 @@ export default class BettingAPI {
 			}
 		});
 	}
-	
+
 	formatValidationErrors(errors) {
 		return reduce(errors, (err, acc) => {
 			return (`${acc}, ${err.stack}`)

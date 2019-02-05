@@ -1,4 +1,7 @@
-import { MarketBettingType, EventTypes } from "../../../lib/enums/betting";
+import {
+    MarketBettingType,
+    EventTypes
+} from "../../../../lib/enums/exchanges/betfair/betting";
 
 export default class MarketFilter {
     constructor(eventIds) {
@@ -47,7 +50,7 @@ export default class MarketFilter {
                 throw response.data.error;
             }
             return response.data.result;
-        } catch(err) {
+        } catch (err) {
             throw err;
         }
     }

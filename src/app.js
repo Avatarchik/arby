@@ -6,15 +6,20 @@ import cors from "cors";
 import chalk from "chalk";
 import schedule from "node-schedule";
 
-import { init } from "./betfair";
+import {
+	init as BetfairInit
+} from "./exchanges/betfair";
+import {
+	init as MatchbookInit
+} from "./exchanges/matchbook"
 
 const app = express();
 const log = console.log;
 
-(async() => {
+(async () => {
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {
-		init();
+	MatchbookInit();
 	// });
 })();
 
