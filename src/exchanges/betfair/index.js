@@ -3,10 +3,12 @@ import scheduler from "node-schedule";
 import {
 	forOwn
 } from "lodash";
+import fs from "fs";
+import path from "path";
 
 import BettingApi from "./apis/betting";
 import AccountsApi from "./apis/accounts";
-import MarketFilter from "./betting/marketFilter";
+// import MarketFilter from "./betting/marketFilter";
 import BetfairConfig from "./config";
 import {
 	handleApiException,
@@ -20,16 +22,14 @@ import {
 	Side,
 	PersistenceType,
 	EventTypes,
-	Operations as BettingOperations
+	Operations as BettingOperations,
+	MarketBettingType
 } from "../../../lib/enums/exchanges/betfair/betting";
 import {
 	Operations as AccountOperations
 } from "../../../lib/enums/exchanges/betfair/account";
 import * as helpers from "../../../lib/helpers";
 
-const eventTypes = [
-	EventTypes.SOCCER.id
-];
 const Account = "Account";
 const Betting = "Betting";
 
@@ -50,20 +50,32 @@ async function getAccountFunds(...args) {
 
 		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, Account);
 
-		betfairConfig.fundsAvailableToBet = 100;
-		// betfairConfig.fundsAvailableToBet = accountFunds.availableToBetBalance;
-		betfairConfig.percentOfFundsToSave = 0.35;
-
-		getEvents(eventTypes);
+		betfairConfig.balance = response.data.result.availableToBetBalance;
 	} catch (err) {
 		throw getException(err, params, Account, funcName, args);
 	}
 }
 
-async function getEvents(...args) {
+async function getEventTypes() {
+	const params = {
+		filter: {}
+	};
+
+	let response;
+
+	try {
+		response = await bettingApi.listEventTypes(params);
+
+		return response.data.result;
+	} catch(err) {
+		console.error(err);
+	}
+}
+
+async function getEvents(eventTypeIds) {
 	const params = {
 		filter: {
-			eventTypeIds: args[0],
+			eventTypeIds,
 			marketStartTime: {
 				from: moment().startOf("day").format(),
 				to: moment().endOf("day").format()
@@ -78,18 +90,21 @@ async function getEvents(...args) {
 		response = await bettingApi.listEvents(params);
 
 		checkForException(response, BettingOperations.LIST_EVENTS, Betting);
-		getMarketCatalogues(response.data.result);
+
+		return response.data.result;
 	} catch (err) {
 		throw getException(err, params, Betting, funcName, args);
 	}
 }
 
-async function getMarketCatalogues(...args) {
-	const events = args[0];
-	const eventIds = events.map(event => event.event.id);
-	const marketFilter = new MarketFilter(eventIds);
+async function getMarketCatalogues(eventIds) {
 	const params = {
-		filter: marketFilter.filter,
+		filter: {
+            eventIds,
+            marketBettingTypes: [
+                MarketBettingType.ODDS.val
+            ]
+        },
 		marketProjection: [
 			MarketProjection.EVENT_TYPE.val,
 			MarketProjection.EVENT.val,
@@ -188,19 +203,52 @@ function setupScheduleJobs() {
 	});
 }
 
+function getEventTypeIds(eventTypes) {
+	const sportsToUse = betfairConfig.sportsToUse;
+
+	return eventTypes.filter(event => {
+		return (sportsToUse.indexOf(event.eventType.name) > -1)
+	})
+		.map(event => event.eventType.id);
+}
+
+function eventNameIsSet(event) {
+	return event.event.name === "Set 01"
+		|| event.event.name === "Set 02"
+		|| event.event.name === "Set 03"
+		|| event.event.name === "Set 04"
+		|| event.event.name === "Set 05";
+}
+
+// For some reason, Betfair returns the sets for a tennis match as events
+// This is a function to remove the,
+function removeBogusTennisEvents(events) {
+	return events.filter(event => {
+		return !eventNameIsSet(event);
+	});
+}
+
 export async function setupDayBetting() {
-	const fakeFunds = 100;
+	let eventTypes;
+	let eventTypeIds;
+	let eventIds;
+	let events;
+	let trueEvents;
 
 	try {
 		// TODO: Renaming needed. This initial invocation cycles through all functions 1 after another
 		// Did it this way so that if there is an error, it will be able to be rectified and continue on from where left off
 		await getAccountFunds();
+		eventTypes = await getEventTypes();
+		eventTypeIds = getEventTypeIds(eventTypes);
 
-		// events = await getEvents(eventTypes);
-		// eventIds = events.map(event => event.event.id);
+		events = await getEvents(eventTypeIds);
+		trueEvents = removeBogusTennisEvents(events);
+		fs.writeFileSync("betfair_events.json", JSON.stringify(trueEvents));
+		console.log("::: number of events: ", trueEvents.length);
+		eventIds = trueEvents.map(event => event.event.id);
 
-		// marketFilter = new MarketFilter(eventIds);
-		// marketCatalogues = await getMarketCatalogues(marketFilter.filter);
+		marketCatalogues = await getMarketCatalogues(eventIds);
 
 		// marketIds = getMarketIdsFromCatalogues(marketCatalogues);
 		// marketBooks = await getMarketBooks(marketIds);
@@ -232,8 +280,8 @@ export async function init() {
 
 	betfairConfig = new BetfairConfig();
 
+	betfairConfig.initAxios();
 	await betfairConfig.login();
-	betfairConfig.initApis();
 
 	bettingApi = new BettingApi();
 	accountApi = new AccountsApi();

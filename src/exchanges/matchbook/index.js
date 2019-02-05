@@ -1,4 +1,5 @@
 import moment from "moment";
+import fs from "fs";
 
 import BettingApi from "./apis/betting";
 import AccountsApi from "./apis/account";
@@ -43,12 +44,15 @@ async function getSports() {
 
 async function getEvents(sportIds) {
     const params = {
-        after: String(moment().startOf("day").valueOf()),
-        before: String(moment().endOf("day").valueOf()),
+        "per-page": 100,
+        after: String(moment().startOf("day").unix()),
+        before: String(moment().endOf("day").unix()),
+        states: "open",
         "sport-ids": JSON.stringify(sportIds).replace("[", "").replace("]", ""),
         "odds-type": "DECIMAL",
         "include-prices": false,
         side: "back",
+        "exchange-type": "back-lay",
         currency: matchbookConfig.defaultCurrency
     };
 
@@ -57,7 +61,9 @@ async function getEvents(sportIds) {
     try {
         response = await bettingApi.getEvents(params);
 
-        return response.data;
+        fs.writeFileSync("matchbook_events.json", JSON.stringify(response.data.events));
+        console.log("::: number of events: ", response.data.events.length);
+        return response.data.events;
     } catch (err) {
         console.error(err);
     }
@@ -75,6 +81,8 @@ function getSportIds(sports) {
 export async function init() {
     let sports;
     let sportsIds;
+    let events;
+    let mutatedEvents;
 
     matchbookConfig = new MatchbookConfig();
 
@@ -89,7 +97,11 @@ export async function init() {
         sports = await getSports();
         sportsIds = getSportIds(sports);
 
-        await getEvents(sportsIds);
+        events = await getEvents(sportsIds);
+        mutatedEvents = events.map(event => {
+            return buildFullEvent(event);
+        });
+        console.log(mutatedEvents);
     } catch(err) {
 
     }

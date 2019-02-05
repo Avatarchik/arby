@@ -7,7 +7,7 @@ import {
 import BetfairConfig from "../config";
 
 import EnumSchemas from "../../../../models/exchanges/betfair/account/enums";
-import OperationSchemas from "../../../../models/exchanges/betfair/account/enums";
+import OperationSchemas from "../../../../models/exchanges/betfair/account/operations";
 
 import {
 	Operations
@@ -49,7 +49,7 @@ export default class AccountsAPI {
 	}
 
 	executeRequest(operation, filters) {
-		return this._api.post(process.env.BETFAIR_ACCOUNT_JSONRPC_ENDPOINT, {
+		return this._api.post(`/${process.env.BETFAIR_ACCOUNT_JSONRPC_ENDPOINT}`, {
 			data: {
 				jsonrpc: "2.0",
 				method: `AccountAPING/v1.0/${operation}`,

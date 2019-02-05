@@ -73,7 +73,7 @@ const getEvents = {
             "type": "string"
         },
         "states": {
-            "type": "string"
+            "$ref": "/States"
         },
         "tag-url-names": {
             "type": "string"

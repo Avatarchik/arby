@@ -19,6 +19,7 @@ const log = console.log;
 (async () => {
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {
+	// BetfairInit();
 	MatchbookInit();
 	// });
 })();

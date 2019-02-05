@@ -18,6 +18,17 @@ const ExchangeType = {
     ]
 };
 
+const States = {
+    "id": "/States",
+    "type": "string",
+    "enum": [
+        "open",
+        "suspended",
+        "closed",
+        "graded"
+    ]
+}
+
 const OddsType = {
     "id": "/OddsType",
     "type": "string",

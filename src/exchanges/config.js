@@ -3,6 +3,7 @@ export default class ExchangeConfig {
         this._defaultLocale = "en";
         this._defaultCurrency = "GBP";
         this._defaultCountryCode = "GB";
+        this._percentageOfBalanceToSave = 0;
         this._sportsToUse = [
             "Soccer",
             "Horse Racing",
@@ -27,6 +28,10 @@ export default class ExchangeConfig {
         return this._sportsToUse;
     }
 
+    get percentageOfBalanceToSave() {
+        return this._percentageOfBalanceToSavel
+    }
+
     set defaultLocale(val) {
         this._defaultLocale = val;
     }
@@ -41,5 +46,9 @@ export default class ExchangeConfig {
 
     set sportsToUse(val) {
         this._sportsToUse = val;
+    }
+
+    set percentageOfBalanceToSave(val) {
+        this._percentageOfBalanceToSave = val;
     }
 }

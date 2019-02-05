@@ -238,7 +238,7 @@ export default class BettingAPI {
 	}
 
 	executeRequest(operation, filters) {
-		return this._api.post(process.env.BETFAIR_BETTING_JSONRPC_ENDPOINT, {
+		return this._api.post(`/${process.env.BETFAIR_BETTING_JSONRPC_ENDPOINT}`, {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,

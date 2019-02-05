@@ -38,8 +38,7 @@ export default class BetfairConfig extends ExchangeConfig {
             headers: {
                 "Accept": "application/json",
                 "X-Application": process.env.BETFAIR_APP_KEY_DELAY,
-                "Content-Type": "application/json",
-                "X-Authentication": process.env.BETFAIR_SESSIONTOKEN
+                "Content-Type": "application/json"
             },
             transformRequest: [function (data, headers) {
                 // Axios encapsulates the request body in a 'data' object
