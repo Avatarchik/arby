@@ -6,22 +6,33 @@ import cors from "cors";
 import chalk from "chalk";
 import schedule from "node-schedule";
 import leven from "leven";
+import { fork } from "child_process";
+import path from "path";
 
-import {
-	init as BetfairInit
-} from "./exchanges/betfair";
-import {
-	init as MatchbookInit
-} from "./exchanges/matchbook"
+// import {
+// 	init as BetfairInit
+// } from "./exchanges/betfair";
+// import {
+// 	init as MatchbookInit
+// } from "./exchanges/matchbook"
 
 const app = express();
 const log = console.log;
 
+let betfairEvents;
+let matchbookEvents;
+
+let betfairProcess;
+let matchbookProcess;
+
 (async () => {
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {
-	BetfairInit();
-	// MatchbookInit();
+	betfairProcess = fork(path.join(__dirname, "exchanges", "betfair", "index.js"));
+	matchbookProcess = fork(path.join(__dirname, "exchanges", "betfair", "index.js"));
+
+	betfairProcess.send("start");
+	matchbookProcess.send("start");
 	// });
 })();
 
@@ -39,6 +50,14 @@ app.listen(process.env.PORT || 3000, () => {
 	log(chalk.green(`Host:\t${process.env.HOST || "localhost"}`));
 	log(chalk.green(`Port:\t${process.env.PORT || 3000}`))
 	log(chalk.green("--------------------"));
+});
+
+matchbookProcess.on("message", (message) => {
+	console.log(message);
+});
+
+betfairProcess.on("message", (message) => {
+	console.log(message);
 });
 
 export default app;

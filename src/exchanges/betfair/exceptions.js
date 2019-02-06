@@ -13,8 +13,15 @@ function BettingException(error, operation) {
 	const {
 		errorCode
 	} = error.data.APINGException;
-	const errorDescription = BettingAPINGException[errorCode].desc;
-	const jsonRpcException = JSON_RPCExceptions[String(error.code)].desc;
+	const errorDescription = BettingEx[errorCode].desc;
+
+	let jsonRpcException;
+
+	if (String(error.code).indexOf("-320") > -1) {
+		jsonRpcException = "Reserved for implementation-defined server-errors";		
+	} else {
+		jsonRpcException = JSON_RPCExceptions[String(error.code)].desc
+	}
 
 	this.code = errorCode;
 	this.operation = operation;
@@ -26,7 +33,7 @@ function AccountException(error, operation) {
 	const {
 		errorCode
 	} = error.data.AccountAPINGException;
-	const errorDescription = AccountAPINGException[errorCode].desc;
+	const errorDescription = AccountEx[errorCode].desc;
 
 	this.code = errorCode;
 	this.operation = operation;

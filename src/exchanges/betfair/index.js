@@ -107,6 +107,8 @@ async function getEvents(eventTypeIds) {
 async function getMarketCatalogues(eventIds) {
 	const type = BETTING;
 	const funcName = getMarketCatalogues.name;
+	// If there is an error of TOO_MUCH_DATA, lower the amount of size
+	const idChunks = chunk(eventIds, 4);
 
 	let params = {
 		filter: {
@@ -126,9 +128,6 @@ async function getMarketCatalogues(eventIds) {
 	let response;
 	let marketCatalogues = [];
 
-	// If there is an error of TOO_MUCH_DATA, lower the amount of size
-	let idChunks = chunk(eventIds, 4)
-
 	try {
 		for (let ids of idChunks) {
 			params.filter.eventIds = ids;
@@ -147,32 +146,36 @@ async function getMarketCatalogues(eventIds) {
 	}
 }
 
-async function getMarketBooks(...args) {
+async function getMarketBooks(marketIds) {
 	const type = BETTING;
 	const funcName = getMarketBooks.name;
-	const marketCatalogues = args[0];
-	const marketIds = marketCatalogues.map(market => market.marketId)
-	const params = {
-		marketIds,
+	// If there is an error of TOO_MUCH_DATA, lower the amount of size
+	// The number of results you get back will be the same number of markets you put in
+	const idChunks = chunk(marketIds, 40);
+
+	let params = {
 		priceProjection: {
 			priceData: [
 				PriceData.EX_BEST_OFFERS.val
 			]
 		}
 	};
-
 	let response;
-	let completeMarkets;
+	let marketBooks = [];
 
 	try {
-		response = await bettingApi.listMarketBook(params);
+		for (let ids of idChunks) {
+			params.marketIds = ids;
 
-		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type);
-		// You can flag this as the ending point for this process. This entire string of functions is meant to be triggered
-		// at midnight to get a complete list of the games that day
-		completeMarkets = helpers.buildCompleteMarkets(marketCatalogues, response.data.result);
+			response = await bettingApi.listMarketBook(params);
 
-		betfairConfig.schedules = helpers.extractSchedules(completeMarkets);
+			checkForException(response, BettingOperations.LIST_MARKET_BOOK, type);
+			// getMarketBooks(response.data.result);
+
+			marketBooks.push(response.data.result);
+		}
+
+		return flattenDeep(marketBooks);
 	} catch (err) {
 		throw getException({ err, params, type, funcName });
 	}
@@ -250,13 +253,20 @@ function removeBogusTennisEvents(events) {
 	});
 }
 
-export async function setupDayBetting() {
+process.on("message", async (message) => {
+	console.log("betfair - " + message);
+	await init();
+});
+
+async function init() {
 	let eventTypes;
 	let eventTypeIds;
 	let eventIds;
 	let events;
 	let trueEvents;
 	let marketCatalogues;
+	let marketIds;
+	let marketBooks;
 
 	try {
 		// TODO: Renaming needed. This initial invocation cycles through all functions 1 after another
@@ -267,58 +277,16 @@ export async function setupDayBetting() {
 
 		events = await getEvents(eventTypeIds);
 		trueEvents = removeBogusTennisEvents(events);
-		fs.writeFileSync("betfair_events.json", JSON.stringify(trueEvents));
-		console.log("::: number of events: ", trueEvents.length);
+		// fs.writeFileSync("betfair_events.json", JSON.stringify(trueEvents));
+		// console.log("::: number of events: ", trueEvents.length);
 		eventIds = trueEvents.map(event => event.event.id);
 
 		marketCatalogues = await getMarketCatalogues(eventIds);
+		marketIds = marketCatalogues.map((catalogue) => catalogue.marketId);
 
-		console.log(marketCatalogues);
+		marketBooks = await getMarketBooks(marketIds);
 
-		// marketIds = getMarketIdsFromCatalogues(marketCatalogues);
-		// marketBooks = await getMarketBooks(marketIds);
-
-		// completeMarkets = buildCompleteMarkets(marketCatalogues, marketBooks);
-
-		// betfairConfig.schedules = extractSchedules(completeMarkets);
-
-		// return completeMarkets;
-	} catch (err) {
-		handleApiException(err);
-	}
-}
-
-// export async function initMatchOddsScalping() {
-// 	try {
-// 		await setupDayBetting();
-// 		setupScheduleJobs();
-// 	} catch(err) {
-// 		console.error(err);
-// 	}
-// }
-
-export async function init() {
-	let markets;
-	let marketsWithBestOdds;
-	let marketsWithBackers;
-	let marketsToPlaceOrders;
-
-	betfairConfig = new BetfairConfig();
-
-	betfairConfig.initAxios();
-	await betfairConfig.login();
-
-	bettingApi = new BettingApi();
-	accountApi = new AccountsApi();
-
-	try {
-		markets = await setupDayBetting();
-
-		marketsWithBestOdds = helpers.getMarketsWithBackRunnerBelowThreshold(markets, 2);
-		marketsWithBackers = helpers.findBackerForEachMarket(marketsWithBestOdds);
-		marketsToPlaceOrders = helpers.determineMarketsToPlaceOrder(marketsWithBackers, betfairConfig.fundsAllowedToBet, 2);
-
-		await placeBets(marketsToPlaceOrders, betfairConfig.fundsAllowedToBet);
+		return helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
 	} catch (err) {
 		handleApiException(err);
 	}

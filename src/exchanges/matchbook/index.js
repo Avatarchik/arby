@@ -5,9 +5,7 @@ import BettingApi from "./apis/betting";
 import AccountsApi from "./apis/account";
 import MatchbookConfig from "./config";
 
-import {
-    buildFullEvent
-} from "../../../lib/helpers";
+import * as helpers from "../../../lib/helpers";
 
 let matchbookConfig;
 let accountsApi;
@@ -79,11 +77,10 @@ function getSportIds(sports) {
         .map(sport => sport.id);
 }
 
-export async function init() {
+async function init() {
     let sports;
     let sportsIds;
     let events;
-    let mutatedEvents;
 
     matchbookConfig = new MatchbookConfig();
 
@@ -99,11 +96,14 @@ export async function init() {
         sportsIds = getSportIds(sports);
 
         events = await getEvents(sportsIds);
-        mutatedEvents = events.map(event => {
-            return buildFullEvent(event);
-        });
-        console.log(mutatedEvents);
+
+        return helpers.matchbook_buildFullEvents(events)
     } catch(err) {
 
     }
 }
+
+process.on("message", async (message) => {
+    console.log("matchbook - " + message);
+    await init();
+});
