@@ -2,7 +2,8 @@ import moment from "moment";
 import scheduler from "node-schedule";
 import {
 	forOwn,
-	chunk
+	chunk,
+	flattenDeep
 } from "lodash";
 import fs from "fs";
 import path from "path";
@@ -31,8 +32,8 @@ import {
 } from "../../../lib/enums/exchanges/betfair/account";
 import * as helpers from "../../../lib/helpers";
 
-const Account = "Account";
-const Betting = "Betting";
+const BETTING = "Betting";
+const ACCOUNT = "Account"
 
 let bettingApi;
 let accountApi;
@@ -42,18 +43,19 @@ async function getAccountFunds(...args) {
 	const params = {
 		filter: {}
 	};
-	const funcName = getAccountFunds.name
+	const funcName = getAccountFunds.name;
+	const type = ACCOUNT;
 
 	let response;
 
 	try {
 		response = await accountApi.getAccountFunds(params);
 
-		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, Account);
+		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type);
 
 		betfairConfig.balance = response.data.result.availableToBetBalance;
 	} catch (err) {
-		throw getException(err, params, Account, funcName, args);
+		throw getException({ err, params, type, funcName, args });
 	}
 }
 
@@ -61,6 +63,8 @@ async function getEventTypes() {
 	const params = {
 		filter: {}
 	};
+	const type = BETTING;
+	const funcName = getEventTypes.name;
 
 	let response;
 
@@ -69,7 +73,7 @@ async function getEventTypes() {
 
 		return response.data.result;
 	} catch(err) {
-		console.error(err);
+		throw getException({ err, params, type, funcName });
 	}
 }
 
@@ -85,22 +89,26 @@ async function getEvents(eventTypeIds) {
 		}
 	};
 	const funcName = getEvents.name;
+	const type = BETTING;
 
 	let response;
 
 	try {
 		response = await bettingApi.listEvents(params);
 
-		checkForException(response, BettingOperations.LIST_EVENTS, Betting);
+		checkForException(response, BettingOperations.LIST_EVENTS, type);
 
 		return response.data.result;
 	} catch (err) {
-		throw getException(err, params, Betting, funcName, args);
+		throw getException({ err, params, type, funcName, args });
 	}
 }
 
 async function getMarketCatalogues(eventIds) {
-	let baseParams = {
+	const type = BETTING;
+	const funcName = getMarketCatalogues.name;
+
+	let params = {
 		filter: {
 			marketBettingTypes: [
 				MarketBettingType.ODDS.val
@@ -117,27 +125,31 @@ async function getMarketCatalogues(eventIds) {
 	};
 	let response;
 	let marketCatalogues = [];
-	let idChunks = chunk(eventIds, 5)
+
+	// If there is an error of TOO_MUCH_DATA, lower the amount of size
+	let idChunks = chunk(eventIds, 4)
 
 	try {
 		for (let ids of idChunks) {
-			baseParams.filter.eventIds = ids;
+			params.filter.eventIds = ids;
 
-			response = await bettingApi.listMarketCatalogue(baseParams);
+			response = await bettingApi.listMarketCatalogue(params);
 
-			checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, Betting);
+			checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type);
 			// getMarketBooks(response.data.result);
 
 			marketCatalogues.push(response.data.result);
 		}
 
-		return marketCatalogues;
+		return flattenDeep(marketCatalogues);
 	} catch (err) {
-		throw getException(err, params, Betting);
+		throw getException({ err, params, type, funcName });
 	}
 }
 
 async function getMarketBooks(...args) {
+	const type = BETTING;
+	const funcName = getMarketBooks.name;
 	const marketCatalogues = args[0];
 	const marketIds = marketCatalogues.map(market => market.marketId)
 	const params = {
@@ -155,14 +167,14 @@ async function getMarketBooks(...args) {
 	try {
 		response = await bettingApi.listMarketBook(params);
 
-		checkForException(response, BettingOperations.LIST_MARKET_BOOK, Betting);
+		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type);
 		// You can flag this as the ending point for this process. This entire string of functions is meant to be triggered
 		// at midnight to get a complete list of the games that day
 		completeMarkets = helpers.buildCompleteMarkets(marketCatalogues, response.data.result);
 
 		betfairConfig.schedules = helpers.extractSchedules(completeMarkets);
 	} catch (err) {
-		throw getException(err, params, Betting);
+		throw getException({ err, params, type, funcName });
 	}
 }
 
@@ -244,6 +256,7 @@ export async function setupDayBetting() {
 	let eventIds;
 	let events;
 	let trueEvents;
+	let marketCatalogues;
 
 	try {
 		// TODO: Renaming needed. This initial invocation cycles through all functions 1 after another

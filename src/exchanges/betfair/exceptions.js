@@ -52,18 +52,18 @@ function PlaceExecutionReport(error, operation) {
 	this.stack = new Error().stack;
 };
 
-export function getException(...args) {
+export function getException(details) {
 	// For some reason the spread operator does not work with 'err'
 	// Most likely because this is sometimes an instance of Error and not a 'true' object
 	return {
-		code: args.err.code,
-		message: args.err.message,
-		stack: args.err.stack,
-		operation: args.err.operation,
-		params: args.params,
-		type: args.type,
-		funcName: args.funcName,
-		args: args.args
+		code: (details.err) ? (details.err.code || "-") : "-",
+		message: (details.err) ? (details.err.message || "-") : "-",
+		stack: (details.err) ? (details.err.stack || "-") : "-",
+		operation: (details.err) ? (details.err.operation || "-") : "-",
+		params: (details.params || "-"),
+		type: (details.type || "-"),
+		funcName: (details.funcName || "-"),
+		args: (details.args || "-")
 	};
 
 }
