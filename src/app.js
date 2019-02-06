@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cors from "cors";
 import chalk from "chalk";
 import schedule from "node-schedule";
+import leven from "leven";
 
 import {
 	init as BetfairInit
@@ -19,8 +20,8 @@ const log = console.log;
 (async () => {
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {
-	// BetfairInit();
-	MatchbookInit();
+	BetfairInit();
+	// MatchbookInit();
 	// });
 })();
 

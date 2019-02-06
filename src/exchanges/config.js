@@ -6,9 +6,9 @@ export default class ExchangeConfig {
         this._percentageOfBalanceToSave = 0;
         this._sportsToUse = [
             "Soccer",
-            "Horse Racing",
-            "Tennis",
-            "Basketball"
+            // "Horse Racing",
+            // "Tennis",
+            // "Basketball"
         ];
     }
 

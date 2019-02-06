@@ -43,9 +43,10 @@ async function getSports() {
 }
 
 async function getEvents(sportIds) {
+    const gap = moment.duration(2, "hours");
     const params = {
         "per-page": 100,
-        after: String(moment().startOf("day").unix()),
+        after: String(moment().subtract(gap).unix()),
         before: String(moment().endOf("day").unix()),
         states: "open",
         "sport-ids": JSON.stringify(sportIds).replace("[", "").replace("]", ""),

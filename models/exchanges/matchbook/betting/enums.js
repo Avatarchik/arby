@@ -81,5 +81,6 @@ export default {
     OddsType,
     PriceMode,
     Side,
-    Currency
+    Currency,
+    States
 };

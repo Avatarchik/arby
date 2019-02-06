@@ -1,7 +1,8 @@
 import moment from "moment";
 import scheduler from "node-schedule";
 import {
-	forOwn
+	forOwn,
+	chunk
 } from "lodash";
 import fs from "fs";
 import path from "path";
@@ -73,11 +74,12 @@ async function getEventTypes() {
 }
 
 async function getEvents(eventTypeIds) {
+	const gap = moment.duration(2, "hours");
 	const params = {
 		filter: {
 			eventTypeIds,
 			marketStartTime: {
-				from: moment().startOf("day").format(),
+				from: moment().subtract(gap).format(),
 				to: moment().endOf("day").format()
 			},
 		}
@@ -98,13 +100,12 @@ async function getEvents(eventTypeIds) {
 }
 
 async function getMarketCatalogues(eventIds) {
-	const params = {
+	let baseParams = {
 		filter: {
-            eventIds,
-            marketBettingTypes: [
-                MarketBettingType.ODDS.val
-            ]
-        },
+			marketBettingTypes: [
+				MarketBettingType.ODDS.val
+			]
+		},
 		marketProjection: [
 			MarketProjection.EVENT_TYPE.val,
 			MarketProjection.EVENT.val,
@@ -112,16 +113,25 @@ async function getMarketCatalogues(eventIds) {
 			MarketProjection.MARKET_DESCRIPTION.val,
 			MarketProjection.RUNNER_DESCRIPTION.val,
 		],
-		maxResults: 100
+		maxResults: 1000
 	};
-
 	let response;
+	let marketCatalogues = [];
+	let idChunks = chunk(eventIds, 5)
 
 	try {
-		response = await bettingApi.listMarketCatalogue(params);
+		for (let ids of idChunks) {
+			baseParams.filter.eventIds = ids;
 
-		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, Betting);
-		getMarketBooks(response.data.result);
+			response = await bettingApi.listMarketCatalogue(baseParams);
+
+			checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, Betting);
+			// getMarketBooks(response.data.result);
+
+			marketCatalogues.push(response.data.result);
+		}
+
+		return marketCatalogues;
 	} catch (err) {
 		throw getException(err, params, Betting);
 	}
@@ -249,6 +259,8 @@ export async function setupDayBetting() {
 		eventIds = trueEvents.map(event => event.event.id);
 
 		marketCatalogues = await getMarketCatalogues(eventIds);
+
+		console.log(marketCatalogues);
 
 		// marketIds = getMarketIdsFromCatalogues(marketCatalogues);
 		// marketBooks = await getMarketBooks(marketIds);

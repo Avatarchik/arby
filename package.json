@@ -21,6 +21,7 @@
     "express-session": "^1.15.6",
     "got": "^9.2.2",
     "jsonschema": "^1.2.4",
+    "leven": "^2.1.0",
     "lodash": "^4.17.11",
     "moment": "^2.22.2",
     "morgan": "^1.9.1",
