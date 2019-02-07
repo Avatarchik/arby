@@ -97,13 +97,16 @@ async function init() {
 
         events = await getEvents(sportsIds);
 
-        return helpers.matchbook_buildFullEvents(events)
+        process.send({
+			status: "complete",
+			mutatedEvents: helpers.matchbook_buildFullEvents(events)
+		});
     } catch(err) {
 
     }
 }
 
 process.on("message", async (message) => {
-    console.log("matchbook - " + message);
-    await init();
+    console.log("::: matchbook process - " + message);
+    init();
 });

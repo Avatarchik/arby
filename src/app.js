@@ -29,7 +29,7 @@ let matchbookProcess;
 	// Runs everyday at midnight
 	// schedule.scheduleJob("0 0 * * *", () => {
 	betfairProcess = fork(path.join(__dirname, "exchanges", "betfair", "index.js"));
-	matchbookProcess = fork(path.join(__dirname, "exchanges", "betfair", "index.js"));
+	matchbookProcess = fork(path.join(__dirname, "exchanges", "matchbook", "index.js"));
 
 	betfairProcess.send("start");
 	matchbookProcess.send("start");
@@ -53,11 +53,17 @@ app.listen(process.env.PORT || 3000, () => {
 });
 
 matchbookProcess.on("message", (message) => {
-	console.log(message);
+	console.log("\n::: MATCHBOOK EVENT :::");
+	console.log(`::: message: ${message.status}`);
+	console.log(`::: # of events: ${message.mutatedEvents.length}`);
+	console.log(`::: events: ${message.mutatedEvents}`)
 });
 
 betfairProcess.on("message", (message) => {
-	console.log(message);
+	console.log("\n::: BETFAIR EVENT :::");
+	console.log(`::: message: ${message.status}`);
+	console.log(`::: # of events: ${message.mutatedEvents.length}`);
+	console.log(`::: events: ${message.mutatedEvents}`);
 });
 
 export default app;

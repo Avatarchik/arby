@@ -39,7 +39,7 @@ let bettingApi;
 let accountApi;
 let betfairConfig;
 
-async function getAccountFunds(...args) {
+async function getAccountFunds() {
 	const params = {
 		filter: {}
 	};
@@ -254,8 +254,8 @@ function removeBogusTennisEvents(events) {
 }
 
 process.on("message", async (message) => {
-	console.log("betfair - " + message);
-	await init();
+	console.log("::: betfair - " + message);
+	init();
 });
 
 async function init() {
@@ -267,6 +267,14 @@ async function init() {
 	let marketCatalogues;
 	let marketIds;
 	let marketBooks;
+
+	betfairConfig = new BetfairConfig();
+
+	betfairConfig.initAxios();
+	await betfairConfig.login();
+
+	accountApi = new AccountsApi();
+	bettingApi = new BettingApi();
 
 	try {
 		// TODO: Renaming needed. This initial invocation cycles through all functions 1 after another
@@ -286,7 +294,10 @@ async function init() {
 
 		marketBooks = await getMarketBooks(marketIds);
 
-		return helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
+		process.send({
+			status: "complete",
+			mutatedEvents: helpers.betfair_buildFullEvents(marketCatalogues, marketBooks)
+		});
 	} catch (err) {
 		handleApiException(err);
 	}
