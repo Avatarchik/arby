@@ -60,8 +60,6 @@ async function getEvents(sportIds) {
     try {
         response = await bettingApi.getEvents(params);
 
-        fs.writeFileSync("matchbook_events.json", JSON.stringify(response.data.events));
-        console.log("::: number of events: ", response.data.events.length);
         return response.data.events;
     } catch (err) {
         console.error(err);

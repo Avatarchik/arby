@@ -8,6 +8,7 @@ import schedule from "node-schedule";
 import leven from "leven";
 import { fork } from "child_process";
 import path from "path";
+import fs from "fs";
 
 // import {
 // 	init as BetfairInit
@@ -57,6 +58,7 @@ matchbookProcess.on("message", (message) => {
 	console.log(`::: message: ${message.status}`);
 	console.log(`::: # of events: ${message.mutatedEvents.length}`);
 	console.log(`::: events: ${message.mutatedEvents}`)
+	fs.writeFileSync("matchbook_events.json", JSON.stringify(message.mutatedEvents));
 });
 
 betfairProcess.on("message", (message) => {
@@ -64,6 +66,7 @@ betfairProcess.on("message", (message) => {
 	console.log(`::: message: ${message.status}`);
 	console.log(`::: # of events: ${message.mutatedEvents.length}`);
 	console.log(`::: events: ${message.mutatedEvents}`);
+	fs.writeFileSync("betfair_events.json", JSON.stringify(message.mutatedEvents));
 });
 
 export default app;

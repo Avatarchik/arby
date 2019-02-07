@@ -3,21 +3,38 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [{
-        "type": "node",
-        "request": "launch",
-        "name": "Debug",
-        "autoAttachChildProcesses": true,
-        "program": "${workspaceFolder}/index.js",
-        "args": [],
-        "cwd": "${workspaceFolder}",
-        "runtimeExecutable": null,
-        "runtimeArgs": [
-            "--nolazy"
-        ],
-        "console": "internalConsole",
-        "env": {
-            "BABEL_ENV": "debug"
+    "configurations": [
+        // {
+        //     "type": "node",
+        //     "request": "launch",
+        //     "name": "Debug",
+        //     "autoAttachChildProcesses": true,
+        //     "program": "${workspaceFolder}/index.js",
+        //     "cwd": "${workspaceFolder}",
+        //     "console": "internalConsole",
+        //     "runtimeArgs": [
+        //         "--nolazy",
+        //         "--require",
+        //         "@babel/register"
+        //     ],
+        //     "env": {
+        //         "BABEL_ENV": "debug"
+        //     }
+        // }
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug",
+            "autoAttachChildProcesses": true,
+            "program": "${workspaceFolder}/index.js",
+            "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/babel-node",
+            "runtimeArgs": [
+                "--nolazy"
+            ],
+            "console": "internalConsole",
+            "env": {
+                "BABEL_ENV": "debug"
+            }
         }
-    }]
+    ]
 }
