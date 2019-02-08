@@ -26,7 +26,7 @@ async function getAccountFunds() {
 async function getSports() {
     const params = {
         "per-page": 100,
-        "status": "active"
+        status: "active",
     };
 
     let response;
@@ -35,7 +35,7 @@ async function getSports() {
         response = await bettingApi.getSports(params);
 
         return response.data.sports;
-    } catch(err) {
+    } catch (err) {
         console.error(err);
     }
 }
@@ -44,15 +44,25 @@ async function getEvents(sportIds) {
     const gap = moment.duration(2, "hours");
     const params = {
         "per-page": 100,
-        after: String(moment().subtract(gap).unix()),
-        before: String(moment().endOf("day").unix()),
+        after: String(
+            moment()
+                .subtract(gap)
+                .unix()
+        ),
+        before: String(
+            moment()
+                .endOf("day")
+                .unix()
+        ),
         states: "open",
-        "sport-ids": JSON.stringify(sportIds).replace("[", "").replace("]", ""),
+        "sport-ids": JSON.stringify(sportIds)
+            .replace("[", "")
+            .replace("]", ""),
         "odds-type": "DECIMAL",
         "include-prices": false,
         side: "back",
         "exchange-type": "back-lay",
-        currency: matchbookConfig.defaultCurrency
+        currency: matchbookConfig.defaultCurrency,
     };
 
     let response;
@@ -69,13 +79,14 @@ async function getEvents(sportIds) {
 function getSportIds(sports) {
     const sportsToUse = matchbookConfig.sportsToUse;
 
-    return sports.filter(sport => {
-        return (sportsToUse.indexOf(sport.name) > -1)
-    })
+    return sports
+        .filter(sport => {
+            return sportsToUse.indexOf(sport.name) > -1;
+        })
         .map(sport => sport.id);
 }
 
-async function init() {
+export async function init() {
     let sports;
     let sportsIds;
     let events;
@@ -89,22 +100,14 @@ async function init() {
     bettingApi = new BettingApi();
 
     try {
+        console.log("::: starting - matchbook :::");
         matchbookConfig.balance = await getAccountFunds();
         sports = await getSports();
         sportsIds = getSportIds(sports);
 
         events = await getEvents(sportsIds);
 
-        process.send({
-			status: "complete",
-			mutatedEvents: helpers.matchbook_buildFullEvents(events)
-		});
-    } catch(err) {
-
-    }
+        console.log("::: returning - matchbook :::");
+        return helpers.matchbook_buildFullEvents(events);
+    } catch (err) {}
 }
-
-process.on("message", async (message) => {
-    console.log("::: matchbook process - " + message);
-    init();
-});

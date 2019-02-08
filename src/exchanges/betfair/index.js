@@ -49,7 +49,13 @@ async function getAccountFunds() {
 
         betfairConfig.balance = response.data.result.availableToBetBalance;
     } catch (err) {
-        throw getException({ err, params, type, funcName, args });
+        throw getException({
+            err,
+            params,
+            type,
+            funcName,
+            args,
+        });
     }
 }
 
@@ -67,7 +73,12 @@ async function getEventTypes() {
 
         return response.data.result;
     } catch (err) {
-        throw getException({ err, params, type, funcName });
+        throw getException({
+            err,
+            params,
+            type,
+            funcName,
+        });
     }
 }
 
@@ -98,7 +109,13 @@ async function getEvents(eventTypeIds) {
 
         return response.data.result;
     } catch (err) {
-        throw getException({ err, params, type, funcName, args });
+        throw getException({
+            err,
+            params,
+            type,
+            funcName,
+            args,
+        });
     }
 }
 
@@ -142,7 +159,12 @@ async function getMarketCatalogues(eventIds) {
 
         return flattenDeep(marketCatalogues);
     } catch (err) {
-        throw getException({ err, params, type, funcName });
+        throw getException({
+            err,
+            params,
+            type,
+            funcName,
+        });
     }
 }
 
@@ -179,7 +201,12 @@ async function getMarketBooks(marketIds) {
 
         return flattenDeep(marketBooks);
     } catch (err) {
-        throw getException({ err, params, type, funcName });
+        throw getException({
+            err,
+            params,
+            type,
+            funcName,
+        });
     }
 }
 
@@ -268,12 +295,7 @@ function removeBogusTennisEvents(events) {
     });
 }
 
-process.on("message", async message => {
-    console.log("::: betfair - " + message);
-    init();
-});
-
-async function init() {
+export async function init() {
     let eventTypes;
     let eventTypeIds;
     let eventIds;
@@ -292,8 +314,7 @@ async function init() {
     bettingApi = new BettingApi();
 
     try {
-        // TODO: Renaming needed. This initial invocation cycles through all functions 1 after another
-        // Did it this way so that if there is an error, it will be able to be rectified and continue on from where left off
+        console.log("::: starting - betfair :::");
         await getAccountFunds();
         eventTypes = await getEventTypes();
         eventTypeIds = getEventTypeIds(eventTypes);
@@ -309,13 +330,8 @@ async function init() {
 
         marketBooks = await getMarketBooks(marketIds);
 
-        process.send({
-            status: "complete",
-            mutatedEvents: helpers.betfair_buildFullEvents(
-                marketCatalogues,
-                marketBooks
-            ),
-        });
+        console.log("::: returning - betfair :::");
+        return helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
     } catch (err) {
         handleApiException(err);
     }

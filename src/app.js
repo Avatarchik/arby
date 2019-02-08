@@ -4,69 +4,86 @@ import bodyParser from "body-parser";
 import morgan from "morgan";
 import cors from "cors";
 import chalk from "chalk";
-import schedule from "node-schedule";
-import leven from "leven";
-import { fork } from "child_process";
-import path from "path";
-import fs from "fs";
+import cluster from "cluster";
 
-// import {
-// 	init as BetfairInit
-// } from "./exchanges/betfair";
-// import {
-// 	init as MatchbookInit
-// } from "./exchanges/matchbook"
+import { initWorker } from "./worker";
 
 const app = express();
 const log = console.log;
+const bookies = ["BETFAIR", "MATCHBOOK"];
 
-let betfairEvents;
+let worker;
 let matchbookEvents;
+let betfairEvents;
+console.log("::: app.js :::");
 
-let betfairProcess;
-let matchbookProcess;
+console.log(`::: Master or Worker?: ${cluster.isMaster ? "Master" : "Worker"}`);
+if (cluster.isMaster) {
+    app.use(bodyParser.json());
+    app.use(morgan("combined"));
+    app.use(cors());
+    app.use(
+        session({
+            secret: "test",
+            resave: false,
+            saveUninitialized: true,
+        })
+    );
 
-(async () => {
-	// Runs everyday at midnight
-	// schedule.scheduleJob("0 0 * * *", () => {
-	betfairProcess = fork(path.join(__dirname, "exchanges", "betfair", "index.js"));
-	matchbookProcess = fork(path.join(__dirname, "exchanges", "matchbook", "index.js"));
+    app.listen(process.env.PORT || 3000, () => {
+        log(chalk.green("--------------------"));
+        log(chalk.green(`Host:\t${process.env.HOST || "localhost"}`));
+        log(chalk.green(`Port:\t${process.env.PORT || 3000}`));
+        log(chalk.green("--------------------"));
+    });
 
-	betfairProcess.send("start");
-	matchbookProcess.send("start");
-	// });
-})();
+    for (let i = 0; i < bookies.length; i++) {
+        worker = cluster.fork({
+            bookie: bookies[i],
+        });
+        // cluster.fork("./worker.js", [], {
+        // 	execArgv: process.execArgv.concat([`--${bookies[i]}`])
+        // });
 
-app.use(bodyParser.json());
-app.use(morgan("combined"));
-app.use(cors());
-app.use(session({
-	secret: "test",
-	resave: false,
-	saveUninitialized: true,
-}));
+        worker.on("message", message => {
+            switch (message.bookie) {
+                case "BETFAIR":
+                    betfairEvents = message.builtEvents;
+                    break;
+                case "MATCHBOOK":
+                    matchbookEvents = message.builtEvents;
+                    break;
+                default:
+                    console.log("Bookie not supported");
+            }
 
-app.listen(process.env.PORT || 3000, () => {
-	log(chalk.green("--------------------"));
-	log(chalk.green(`Host:\t${process.env.HOST || "localhost"}`));
-	log(chalk.green(`Port:\t${process.env.PORT || 3000}`))
-	log(chalk.green("--------------------"));
-});
+            if (matchbookEvents && betfairEvents) {
+                // continue
+            }
+        });
+    }
 
-matchbookProcess.on("message", (message) => {
-	console.log("\n::: MATCHBOOK EVENT :::");
-	console.log(`::: message: ${message.status}`);
-	console.log(`::: # of events: ${message.mutatedEvents.length}`);
-	console.log(`::: events: ${message.mutatedEvents}`)
-	fs.writeFileSync("matchbook_events.json", JSON.stringify(message.mutatedEvents));
-});
-
-betfairProcess.on("message", (message) => {
-	console.log("\n::: BETFAIR EVENT :::");
-	console.log(`::: message: ${message.status}`);
-	console.log(`::: # of events: ${message.mutatedEvents.length}`);
-	console.log(`::: events: ${message.mutatedEvents}`);
-	fs.writeFileSync("betfair_events.json", JSON.stringify(message.mutatedEvents));
-});
+    cluster.on("online", worker => {
+        console.log(
+            `Worker ${worker.id} is now online after it has been forked`
+        );
+    });
+    cluster.on("listening", (worker, address) => {
+        console.log(
+            `A worker is now connected to ${address.address}:${address.port}`
+        );
+    });
+    cluster.on("fork", worker => {
+        console.log(`New worker being forked: ${worker.id}`);
+    });
+    cluster.on("exit", (worker, code, signal) => {
+        console.log(`Worker ${worker.id} died ${signal || code}`);
+    });
+    cluster.on("death", worker => {
+        console.log(`Worker ${worker.id} died`);
+    });
+} else {
+    initWorker();
+}
 
 export default app;

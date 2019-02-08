@@ -1,4 +1,4 @@
 require("dotenv").config();
-// require("@babel/register");
+console.log("\n::: index.js :::");
 
-require("./src/app");
+require("./src/app.js");
