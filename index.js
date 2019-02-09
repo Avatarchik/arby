@@ -1,4 +1,7 @@
 require("dotenv").config();
-console.log("\n::: index.js :::");
+
+if (process.env.NODE_ENV !== "debug") {
+    require("@babel/register");
+}
 
 require("./src/app.js");

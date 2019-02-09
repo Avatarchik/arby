@@ -15,9 +15,7 @@ const bookies = ["BETFAIR", "MATCHBOOK"];
 let worker;
 let matchbookEvents;
 let betfairEvents;
-console.log("::: app.js :::");
 
-console.log(`::: Master or Worker?: ${cluster.isMaster ? "Master" : "Worker"}`);
 if (cluster.isMaster) {
     app.use(bodyParser.json());
     app.use(morgan("combined"));
@@ -41,9 +39,6 @@ if (cluster.isMaster) {
         worker = cluster.fork({
             bookie: bookies[i],
         });
-        // cluster.fork("./worker.js", [], {
-        // 	execArgv: process.execArgv.concat([`--${bookies[i]}`])
-        // });
 
         worker.on("message", message => {
             switch (message.bookie) {
