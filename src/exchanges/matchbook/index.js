@@ -90,6 +90,7 @@ export async function init() {
     let sports;
     let sportsIds;
     let events;
+    let mutatedEvents;
 
     matchbookConfig = new MatchbookConfig();
 
@@ -100,14 +101,17 @@ export async function init() {
     bettingApi = new BettingApi();
 
     try {
-        console.log("::: starting - matchbook :::");
+        console.time("matchbook");
         matchbookConfig.balance = await getAccountFunds();
         sports = await getSports();
         sportsIds = getSportIds(sports);
 
         events = await getEvents(sportsIds);
+        // fs.writeFileSync("./matchbook_events.json", JSON.stringify(events));
 
-        console.log("::: returning - matchbook :::");
+        console.timeEnd("matchbook");
         return helpers.matchbook_buildFullEvents(events);
-    } catch (err) {}
+    } catch (err) {
+        console.log(err);
+    }
 }

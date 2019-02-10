@@ -7,6 +7,7 @@ import chalk from "chalk";
 import cluster from "cluster";
 
 import { initWorker } from "./worker";
+import { matchMarkets } from "./calcs";
 
 const app = express();
 const log = console.log;
@@ -52,8 +53,24 @@ if (cluster.isMaster) {
                     console.log("Bookie not supported");
             }
 
-            if (matchbookEvents && betfairEvents) {
-                // continue
+            if (
+                matchbookEvents &&
+                matchbookEvents.length &&
+                betfairEvents &&
+                betfairEvents.length
+            ) {
+                matchMarkets([
+                    {
+                        name: "matchbook",
+                        events: matchbookEvents,
+                    },
+                    {
+                        name: "betfair",
+                        events: betfairEvents,
+                    },
+                ]);
+            } else {
+                // Probable best off altering the event types?
             }
         });
     }

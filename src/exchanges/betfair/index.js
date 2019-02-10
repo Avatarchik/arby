@@ -25,6 +25,7 @@ import {
 } from "../../../lib/enums/exchanges/betfair/betting";
 import { Operations as AccountOperations } from "../../../lib/enums/exchanges/betfair/account";
 import * as helpers from "../../../lib/helpers";
+import { isDeepStrictEqual } from "util";
 
 const BETTING = "Betting";
 const ACCOUNT = "Account";
@@ -123,7 +124,7 @@ async function getMarketCatalogues(eventIds) {
     const type = BETTING;
     const funcName = getMarketCatalogues.name;
     // If there is an error of TOO_MUCH_DATA, lower the amount of size
-    const idChunks = chunk(eventIds, 4);
+    const idChunks = chunk(eventIds, 2);
 
     let params = {
         filter: {
@@ -140,8 +141,21 @@ async function getMarketCatalogues(eventIds) {
     };
     let response;
     let marketCatalogues = [];
+    let marketCataloguePromises;
 
     try {
+        console.time("market-catalogues");
+
+        // I attempted the commented out method below in an attempt to make all calls asynchronous and, hopefully, make the process faster
+        // However, when doing this, I was returned with the error code of 'TOO_MUCH_DATA' everytime so too many requests per second?
+        //
+        // marketCataloguePromises = idChunks.map(ids => {
+        //     params.filter.events = ids;
+
+        //     return bettingApi.listMarketCatalogue(params);
+        // });
+
+        // marketCatalogues = await Promise.all(marketCataloguePromises);
         for (let ids of idChunks) {
             params.filter.eventIds = ids;
 
@@ -157,6 +171,7 @@ async function getMarketCatalogues(eventIds) {
             marketCatalogues.push(response.data.result);
         }
 
+        console.timeEnd("market-catalogues");
         return flattenDeep(marketCatalogues);
     } catch (err) {
         throw getException({
@@ -249,8 +264,6 @@ async function placeBets(markets, funds) {
     }
 }
 
-function resolveScheduledJob(fired) {}
-
 function setupScheduleJobs() {
     let dateToSchedule;
     let eventLength;
@@ -314,7 +327,7 @@ export async function init() {
     bettingApi = new BettingApi();
 
     try {
-        console.log("::: starting - betfair :::");
+        console.time("betfair");
         await getAccountFunds();
         eventTypes = await getEventTypes();
         eventTypeIds = getEventTypeIds(eventTypes);
@@ -330,7 +343,7 @@ export async function init() {
 
         marketBooks = await getMarketBooks(marketIds);
 
-        console.log("::: returning - betfair :::");
+        console.timeEnd("betfair");
         return helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
     } catch (err) {
         handleApiException(err);

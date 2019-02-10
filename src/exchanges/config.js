@@ -6,7 +6,8 @@ export default class ExchangeConfig {
         this._percentageOfBalanceToSave = 0;
         this._sportsToUse = [
             "Soccer",
-            // "Horse Racing",
+            //"Horse Racing",               // There is currently no point with Horse Racing, as there will never be a market backing with only 2 runners
+            // For this to work, you would have to incorporate LAY betting as well
             // "Tennis",
             // "Basketball"
         ];
@@ -29,7 +30,7 @@ export default class ExchangeConfig {
     }
 
     get percentageOfBalanceToSave() {
-        return this._percentageOfBalanceToSavel
+        return this._percentageOfBalanceToSavel;
     }
 
     set defaultLocale(val) {
