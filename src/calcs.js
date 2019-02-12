@@ -1,5 +1,6 @@
 import leven from "leven";
 import { forEach, clone, find, filter, uniq } from "lodash";
+import { compareTwoStrings, findBestMatch } from "string-similarity";
 
 /**
  * As this has 4 iterations it can be confusing...
@@ -27,11 +28,24 @@ function getExchangesToCompare(
     });
 }
 
-function teamMatch(eventToCheck, eventToCompare, distance) {
+function teamMatch(eventToCheck, eventToCompare, similarity) {
+    let matchedTeam;
+
     return eventToCheck.competitors.every(competitorToCheck => {
-        return eventToCompare.competitors.find(competitorToCompare => {
-            return leven(competitorToCheck, competitorToCompare) <= distance;
+        matchedTeam = eventToCompare.competitors.find(competitorToCompare => {
+            return (
+                compareTwoStrings(
+                    competitorToCheck.toUpperCase(),
+                    competitorToCompare.toUpperCase()
+                ) >= similarity
+            );
         });
+
+        // Safety that if team has been matched, cannot use it to be matched again
+        if (matchedTeam) {
+            eventToCompare.competitors.splice(matchedTeam, 1);
+        }
+        return matchedTeam;
     });
 }
 
@@ -133,7 +147,7 @@ function findSameEvents(exchanges) {
                                     match = teamMatch(
                                         eventToCheck,
                                         eventToCompare,
-                                        5
+                                        1.9
                                     );
                             }
 

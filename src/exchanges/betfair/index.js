@@ -128,7 +128,14 @@ async function getMarketCatalogues(eventIds) {
 
     let params = {
         filter: {
-            marketBettingTypes: [MarketBettingType.ODDS.val],
+            marketBettingTypes: [
+                ...(betfairConfig.betOnOdds
+                    ? [MarketBettingType.ODDS.val]
+                    : []),
+                ...(betfairConfig.betOnSpread
+                    ? [MarketBettingType.LINE.val]
+                    : []),
+            ],
         },
         marketProjection: [
             MarketProjection.EVENT_TYPE.val,

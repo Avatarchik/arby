@@ -70,7 +70,7 @@ if (cluster.isMaster) {
                     },
                 ]);
             } else {
-                // Probable best off altering the event types?
+                console.log("No events");
             }
         });
     }
