@@ -1,6 +1,6 @@
-import leven from "leven";
 import { forEach, clone, find, filter, uniq } from "lodash";
 import { compareTwoStrings, findBestMatch } from "string-similarity";
+import fs from "fs";
 
 /**
  * As this has 4 iterations it can be confusing...
@@ -21,20 +21,18 @@ function getExchangesToCompare(exchanges, exchangeBeingChecked, exchangesChecked
 	});
 }
 
-function teamMatch(eventToCheck, eventToCompare, similarity) {
-	let matchedTeam;
+function teamMatch(eventToCheck, eventToCompare, similarityThreshold) {
+	let bestMatchedTeam;
 
-	return eventToCheck.competitors.every(competitorToCheck => {
-		matchedTeam = eventToCompare.competitors.find(competitorToCompare => {
-			return compareTwoStrings(competitorToCheck.toUpperCase(), competitorToCompare.toUpperCase()) >= similarity;
+	try {
+		return eventToCheck.competitors.every(competitorToCheck => {
+			bestMatchedTeam = findBestMatch(competitorToCheck, eventToCompare.competitors);
+
+			return bestMatchedTeam.bestMatch.rating >= similarityThreshold;
 		});
-
-		// Safety that if team has been matched, cannot use it to be matched again
-		if (matchedTeam) {
-			eventToCompare.competitors.splice(matchedTeam, 1);
-		}
-		return matchedTeam;
-	});
+	} catch (err) {
+		console.error(err);
+	}
 }
 
 function countryMatch(eventToCheck, eventToCompare) {
@@ -49,7 +47,21 @@ function eventTypeMatch(eventToCheck, eventToCompare) {
 	return eventToCheck.eventType.toUpperCase() === eventToCompare.eventType.toUpperCase();
 }
 
-function findSameMarkets(matchedEvent, exchanges) {
+function teamMatch(eventToCheck, eventToCompare, similarityThreshold) {
+	let bestMatchedTeam;
+
+	try {
+		return eventToCheck.competitors.every(competitorToCheck => {
+			bestMatchedTeam = findBestMatch(competitorToCheck, eventToCompare.competitors);
+
+			return bestMatchedTeam.bestMatch.rating >= similarityThreshold;
+		});
+	} catch (err) {
+		console.error(err);
+	}
+}
+
+function findSameMarkets(matchedEvent, exchanges, similarityThreshold) {
 	const eventSections = matchedEvent.split("|");
 	const exchange1 = exchanges.find(exchange => exchange.name === eventSections[0]);
 	const exchange1event = exchange1.events.find(event => {
@@ -60,17 +72,25 @@ function findSameMarkets(matchedEvent, exchanges) {
 		return event.name === eventSections[4] && event.id === eventSections[5];
 	});
 
-	let matchedMarket;
+	let bestMatchedMarket;
 
-	console.log(`\nMarkets for ${exchange1.name}`);
-	console.log(`::: ${exchange1.name} :::`);
-	for (let i = 0; i < exchange1event.markets.length; i++) {
-		console.log(exchange1event.markets[i].name);
-	}
-	console.log(`::: ${exchange2.name} :::`);
-	for (let i = 0; i < exchange2event.markets.length; i++) {
-		console.log(exchange2event.markets[i].name);
-	}
+	exchange1event.markets.forEach(ex1Market => {
+		bestMatchedMarket = findBestMatch(ex1Market.name, exchange2event.markets.map(ex2Market => ex2Market.name));
+
+		if (bestMatchedTeam.bestMatch.rating >= similarityThreshold) {
+			console.log(`${ex1Market.name} matched with ${bestMatchedMarket.bestMatch.target} with a score of ${bestMatchedMarket.bestMatch.rating}`);
+		}
+
+		// return (bestMatchedTeam.bestMatch.rating >= similarityThreshold);
+	});
+}
+
+function checkQualifictionEvents(exchangesToCompare) {
+	return exchangesToCompare.filter(exchange => {
+		return exchange.events.filter(event => {
+			return event.name.indexOf("To Qualify") > -1;
+		}).length;
+	});
 }
 
 function findSameEvents(exchanges) {
@@ -94,30 +114,37 @@ function findSameEvents(exchanges) {
 			for (let j = 0; j < exchanges[i].events.length; j++) {
 				eventToCheck = exchanges[i].events[j];
 
-				// Iterate the exchanges that are not this one
-				// (This and the iteration above could be swapped around but don't think it makes that much difference to performance)
-				for (let k = 0; k < exchangesToCompare.length; k++) {
-					exchangeToCompare = exchangesToCompare[k];
+				if (eventToCheck.name.indexOf("To Qualify") > -1) {
+					// checkQualifictionEvents(exchangesToCompare);
+				} else {
+					// Iterate the exchanges that are not this one
+					// (This and the iteration above could be swapped around but don't think it makes that much difference to performance)
+					for (let k = 0; k < exchangesToCompare.length; k++) {
+						exchangeToCompare = exchangesToCompare[k];
 
-					// Iterate the events of the exchange you are comparing
+						// Iterate the events of the exchange you are comparing
 
-					for (let l = 0; l < exchangesToCompare[k].events.length; l++) {
-						eventToCompare = exchangesToCompare[k].events[l];
+						for (let l = 0; l < exchangesToCompare[k].events.length; l++) {
+							eventToCompare = exchangesToCompare[k].events[l];
 
-						if (countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)) {
-							switch (eventToCheck.eventType) {
-								case "Soccer":
-								case "Tennis":
-								case "Basketball":
-									match = teamMatch(eventToCheck, eventToCompare, 1.9);
-							}
+							if (countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)) {
+								switch (eventToCheck.eventType) {
+									case "Soccer":
+									case "Tennis":
+									case "Basketball":
+										if (eventToCheck.competitors.length && eventToCompare.competitors.length) {
+											match = teamMatch(eventToCheck, eventToCompare, 0.2);
+										}
+								}
 
-							if (match) {
-								matches.push(
-									`${exchangeToCheck.name}|${eventToCheck.name}|${eventToCheck.id}|${exchangeToCompare.name}|${
-										eventToCompare.name
-									}|${eventToCompare.id}`
-								);
+								if (match) {
+									matches.push(
+										`${exchangeToCheck.name}|${eventToCheck.name}|${eventToCheck.id}|${exchangeToCompare.name}|${
+											eventToCompare.name
+										}|${eventToCompare.id}`
+									);
+								}
+								match = false;
 							}
 						}
 					}
@@ -132,10 +159,11 @@ function findSameEvents(exchanges) {
 export function matchMarkets(exchangesEvents) {
 	const sameEvents = findSameEvents(exchangesEvents);
 
+	fs.writeFileSync("comparison.json", JSON.stringify(sameEvents));
 	let sameMarkets;
 
 	sameEvents.forEach(event => {
-		sameMarkets = findSameMarkets(event, exchangesEvents);
+		sameMarkets = findSameMarkets(event, exchangesEvents, 0.7);
 	});
 	/**
 	 * 1. Find same events
