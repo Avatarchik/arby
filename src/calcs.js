@@ -2,6 +2,7 @@ import { forEach, clone, find, filter, uniq } from "lodash";
 import { compareTwoStrings, findBestMatch } from "string-similarity";
 import fs from "fs";
 
+console.log(compareTwoStrings("Slavia Prague v Genk", "SK Slavia Praha vs Racing Genk"));
 /**
  * As this has 4 iterations it can be confusing...
  *
@@ -54,6 +55,9 @@ function teamMatch(eventToCheck, eventToCompare, similarityThreshold) {
 		return eventToCheck.competitors.every(competitorToCheck => {
 			bestMatchedTeam = findBestMatch(competitorToCheck, eventToCompare.competitors);
 
+			if (bestMatchedTeam.bestMatch.rating >= similarityThreshold) {
+				console.log(`Matched "${competitorToCheck}" with "${bestMatchedTeam.bestMatch.target}" @ ${bestMatchedTeam.bestMatch.rating}`);
+			}
 			return bestMatchedTeam.bestMatch.rating >= similarityThreshold;
 		});
 	} catch (err) {
@@ -75,22 +79,28 @@ function findSameMarkets(matchedEvent, exchanges, similarityThreshold) {
 	let bestMatchedMarket;
 
 	exchange1event.markets.forEach(ex1Market => {
-		bestMatchedMarket = findBestMatch(ex1Market.name, exchange2event.markets.map(ex2Market => ex2Market.name));
+		bestMatchedMarket = findBestMatch(ex1Market.name.toUpperCase(), exchange2event.markets.map(ex2Market => ex2Market.name.toUpperCase()));
 
-		if (bestMatchedTeam.bestMatch.rating >= similarityThreshold) {
-			console.log(`${ex1Market.name} matched with ${bestMatchedMarket.bestMatch.target} with a score of ${bestMatchedMarket.bestMatch.rating}`);
+		if (bestMatchedMarket.bestMatch.rating >= similarityThreshold) {
+			console.log(`"${ex1Market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`);
 		}
 
 		// return (bestMatchedTeam.bestMatch.rating >= similarityThreshold);
 	});
 }
 
-function checkQualifictionEvents(exchangesToCompare) {
-	return exchangesToCompare.filter(exchange => {
-		return exchange.events.filter(event => {
-			return event.name.indexOf("To Qualify") > -1;
-		}).length;
-	});
+// function checkQualifictionEvents(exchangesToCompare) {
+// 	return exchangesToCompare.filter(exchange => {
+// 		return exchange.events.filter(event => {
+// 			return event.name.indexOf("To Qualify") > -1;
+// 		}).length;
+// 	});
+// }
+
+function removeMatchedEvents() {
+	/**
+	 * TODO: Remove the events of the exchange you are comparing against that have already been matched
+	 */
 }
 
 function findSameEvents(exchanges) {
@@ -98,10 +108,12 @@ function findSameEvents(exchanges) {
 	let exchangeToCheck;
 	let exchangeToCompare;
 	let eventToCheck;
-	let eventToCompare;
 	let matches = [];
-	let match;
 	let exchangesChecked = [];
+	let eventBestMatch;
+	let eventsMatchingCountryAndType;
+	let exchangeToCompareMatchingEvent;
+	let eventNameBestMatch;
 
 	console.time("findSameEvents");
 	for (let i = 0; i < exchanges.length; i++) {
@@ -122,31 +134,53 @@ function findSameEvents(exchanges) {
 					for (let k = 0; k < exchangesToCompare.length; k++) {
 						exchangeToCompare = exchangesToCompare[k];
 
-						// Iterate the events of the exchange you are comparing
+						eventsMatchingCountryAndType = exchangeToCompare.events
+							.filter(eventToCompare => {
+								return countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare);
+							})
+							.map(event => event.name);
 
-						for (let l = 0; l < exchangesToCompare[k].events.length; l++) {
-							eventToCompare = exchangesToCompare[k].events[l];
+						if (eventsMatchingCountryAndType && eventsMatchingCountryAndType.length) {
+							eventBestMatch = findBestMatch(eventToCheck.name, eventsMatchingCountryAndType);
+							eventNameBestMatch = eventBestMatch.bestMatch.target;
 
-							if (countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)) {
-								switch (eventToCheck.eventType) {
-									case "Soccer":
-									case "Tennis":
-									case "Basketball":
-										if (eventToCheck.competitors.length && eventToCompare.competitors.length) {
-											match = teamMatch(eventToCheck, eventToCompare, 0.2);
-										}
-								}
+							if (eventBestMatch.bestMatch.rating >= 0.52) {
+								exchangeToCompareMatchingEvent = exchangeToCompare.events.find(
+									event => event.name === eventBestMatch.bestMatch.target
+								);
 
-								if (match) {
-									matches.push(
-										`${exchangeToCheck.name}|${eventToCheck.name}|${eventToCheck.id}|${exchangeToCompare.name}|${
-											eventToCompare.name
-										}|${eventToCompare.id}`
-									);
-								}
-								match = false;
+								console.log(`Matched "${eventToCheck.name}" with "${eventNameBestMatch}" @ ${eventBestMatch.bestMatch.rating}`);
+								matches.push(
+									`${exchangeToCheck.name}|${eventToCheck.name}|${eventToCheck.id}|${
+										exchangeToCompare.name
+									}|${eventNameBestMatch}|${exchangeToCompareMatchingEvent.id}`
+								);
 							}
 						}
+						// findBestMatch(eventToCheck.name, exchangeToCompare.events.map(event => event.name));
+						// for (let l = 0; l < exchangesToCompare[k].events.length; l++) {
+						// 	eventToCompare = exchangesToCompare[k].events[l];
+
+						// 	if (countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)) {
+						// 		switch (eventToCheck.eventType) {
+						// 			case "Soccer":
+						// 			case "Tennis":
+						// 			case "Basketball":
+						// 				if (eventToCheck.competitors.length && eventToCompare.competitors.length) {
+						// 					match = teamMatch(eventToCheck, eventToCompare, 0.3);
+						// 				}
+						// 		}
+
+						// 		if (match) {
+						// 			matches.push(
+						// 				`${exchangeToCheck.name}|${eventToCheck.name}|${eventToCheck.id}|${exchangeToCompare.name}|${
+						// 				eventToCompare.name
+						// 				}|${eventToCompare.id}`
+						// 			);
+						// 		}
+						// 		match = false;
+						// 	}
+						// }
 					}
 				}
 			}
