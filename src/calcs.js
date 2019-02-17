@@ -144,7 +144,7 @@ function findSameEvents(exchanges) {
 							eventBestMatch = findBestMatch(eventToCheck.name, eventsMatchingCountryAndType);
 							eventNameBestMatch = eventBestMatch.bestMatch.target;
 
-							if (eventBestMatch.bestMatch.rating >= 0.52) {
+							if (eventBestMatch.bestMatch.rating >= 0.5) {
 								exchangeToCompareMatchingEvent = exchangeToCompare.events.find(
 									event => event.name === eventBestMatch.bestMatch.target
 								);
