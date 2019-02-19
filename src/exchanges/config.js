@@ -6,12 +6,18 @@ export default class ExchangeConfig {
 		this._percentageOfBalanceToSave = 0;
 		this._betOnOdds = true;
 		this._betOnSpread = true;
-		this._betOnAsianHandicapSingleLine = true;
+		// The Asian Single Line doesn't seem to return anything important...
+		// For football, for example, it returns runners such as:
+		// - 1 goals or more
+		// - 2 goal or more
+		//
+		// I can already do this using TOTAL types of Under/Over halves or HANDICAP types of Under/Over quarters
+		this._betOnAsianHandicapSingleLine = false;
 		this._betOnAsianHandicapDoubleLine = true;
 		this._sportsToUse = [
 			"Soccer"
-			//"Horse Racing",               // There is currently no point with Horse Racing, as there will never be a market backing with only 2 runners
-			// For this to work, you would have to incorporate LAY betting as well
+			// "Horse Racing",                  There is currently no point with Horse Racing, as there will never be a market backing with only 2 runners
+			// 								   	For this to work, you would have to incorporate LAY betting as well
 			// "Tennis",
 			// "Basketball"
 		];

@@ -1,6 +1,6 @@
 import moment from "moment";
 import scheduler from "node-schedule";
-import { forOwn, chunk, flattenDeep } from "lodash";
+import { forOwn, chunk, flattenDeep, uniqBy } from "lodash";
 import fs from "fs";
 import path from "path";
 
@@ -79,17 +79,17 @@ async function getEventTypes() {
 	}
 }
 
-async function getEvents(eventTypeIds) {
+async function getEvents(...args) {
 	const gap = moment.duration(2, "hours");
 	const params = {
 		filter: {
-			eventTypeIds,
+			eventTypeIds: args[0],
 			marketStartTime: {
 				from: moment()
 					.subtract(gap)
 					.format(),
 				to: moment()
-					.endOf("day")
+					.add(1, "day")
 					.format()
 			}
 		}
@@ -324,6 +324,9 @@ export async function init() {
 		eventIds = trueEvents.map(event => event.event.id);
 
 		marketCatalogues = await getMarketCatalogues(eventIds);
+
+		marketCatalogues.forEach(catalogue => console.log(catalogue));
+		// console.log(uniqBy(marketCatalogues, (catalogue) => catalogue.description.bettingType));
 
 		marketIds = marketCatalogues.map(catalogue => catalogue.marketId);
 
