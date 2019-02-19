@@ -79,6 +79,34 @@ async function getEventTypes() {
 	}
 }
 
+async function getMarketTypes(...args) {
+	const params = {
+		filter: {
+			eventTypeIds: args[0]
+		}
+	};
+	const funcName = getMarketTypes.name;
+	const type = BETTING;
+
+	let response;
+
+	try {
+		response = await bettingApi.listMarketTypes(params);
+
+		checkForException(response, BettingOperations.LIST_MARKET_TYPES, type);
+
+		return response.data.result;
+	} catch (err) {
+		throw getException({
+			err,
+			params,
+			type,
+			funcName,
+			args
+		});
+	}
+}
+
 async function getEvents(...args) {
 	const gap = moment.duration(2, "hours");
 	const params = {
@@ -302,6 +330,7 @@ export async function init() {
 	let marketCatalogues;
 	let marketIds;
 	let marketBooks;
+	let marketTypes;
 
 	betfairConfig = new BetfairConfig();
 
@@ -316,6 +345,7 @@ export async function init() {
 		await getAccountFunds();
 		eventTypes = await getEventTypes();
 		eventTypeIds = getEventTypeIds(eventTypes);
+		marketTypes = await getMarketTypes(eventTypeIds);
 
 		events = await getEvents(eventTypeIds);
 		trueEvents = removeBogusTennisEvents(events);
