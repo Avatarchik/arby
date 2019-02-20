@@ -15,11 +15,20 @@ export default class ExchangeConfig {
 		this._betOnAsianHandicapSingleLine = false;
 		this._betOnAsianHandicapDoubleLine = true;
 		this._sportsToUse = [
-			"Soccer"
+			// "Soccer"
 			// "Horse Racing",                  There is currently no point with Horse Racing, as there will never be a market backing with only 2 runners
 			// 								   	For this to work, you would have to incorporate LAY betting as well
 			// "Tennis",
 			// "Basketball"
+			// "Rugby Union",
+			// "Rugby League",
+			// "Golf",
+			// "Cricket",
+			// "Baseball",
+			// "American Football",
+			// "Snooker",
+			// "Boxing",
+			"Cycling"
 		];
 	}
 
