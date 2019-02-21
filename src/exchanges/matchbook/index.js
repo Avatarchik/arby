@@ -51,7 +51,7 @@ async function getEvents(sportIds) {
 		),
 		before: String(
 			moment()
-				.add(1, "day")
+				.add(2, "day")
 				.unix()
 		),
 		states: "open",
@@ -108,12 +108,18 @@ export async function init() {
 
 		events = await getEvents(sportsIds);
 
+		let thingsToRight = [];
 		events.forEach(event => {
 			event.markets.forEach(market => {
-				console.log(`${market.name} is of type ${market["market-type"]}`);
+				thingsToRight.push({
+					name: market.name,
+					type: market["market-type"],
+					runnerNo: market.runners.length,
+					runners: market.runners.map(runner => runner.name)
+				});
 			});
 		});
-		// fs.writeFileSync("./matchbook_events.json", JSON.stringify(events));
+		fs.writeFileSync("./matchbook_events.json", JSON.stringify(thingsToRight));
 
 		console.timeEnd("matchbook");
 		return helpers.matchbook_buildFullEvents(events);

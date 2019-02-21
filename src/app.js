@@ -12,8 +12,8 @@ import { matchMarkets } from "./calcs";
 const app = express();
 const log = console.log;
 const bookies = [
-	"BETFAIR"
-	// "MATCHBOOK"
+	// "BETFAIR"
+	"MATCHBOOK"
 ];
 
 let worker;
