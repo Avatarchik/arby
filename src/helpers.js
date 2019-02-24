@@ -1,10 +1,9 @@
 import { flattenDeep, uniq, mapValues, groupBy, values, flatten } from "lodash";
 import { getCode, overwrite } from "country-list";
-import MarketTypes from "./enums/marketTypes";
+import MarketTypes from "../lib/enums/marketTypes";
 
-console.log(flattenDeep([{ name: "Will" }]));
-console.log(flatten([{ name: "Will" }]));
-
+// Some bookies (Matchbook especially) give country codes that this library does not map correctly
+// So these are overrides for those names
 overwrite([
 	{
 		code: "GB",
@@ -29,6 +28,10 @@ overwrite([
 	{
 		code: "-",
 		name: "Europe"
+	},
+	{
+		code: "-",
+		name: "U.A.E."
 	}
 ]);
 
@@ -37,7 +40,7 @@ function checkIfAbleToLay(funds, layPrice) {
 }
 
 function getLiability(amountStaked, odds) {
-	return amountStaked * (odds - 1);
+	return amountStaked * odds - amountStaked;
 }
 
 function getIndividualRunners(markets) {
@@ -396,7 +399,7 @@ function formatMarkets(markets, exchange) {
 	const marketsOnlyTwoRunners = getMarketsOnlyTwoRunners(markets, exchange);
 
 	return flatten(
-		marketsOnlyTwoRunners.map(market => {
+		markets.map(market => {
 			switch (exchange) {
 				case "betfair":
 					if (market.description.bettingType === "ASIAN_HANDICAP_DOUBLE_LINE") {
@@ -439,18 +442,25 @@ function isWholeNumberHandicap(name) {
 // (.5/.75)
 // (1.5/2.0)
 // (+.75/1.0)
-function isAsianDoubleLine(name) {
+export function isAsianDoubleLine(name) {
 	return new RegExp(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/).test(name);
 }
 
 // (+1.5)
 // 2.75
 // -3.0
-function isAsianSingleLine(name) {
+export function isAsianSingleLine(name, isRunner) {
 	const match = name.match(/(\(?[+-]?\d?\.\d{1,2}\)?)/g);
 
 	// An Asian Double Line market would match twice...
-	return match ? match.length === 1 : false;
+	// A runner will only have the handicap for 1 team whereas a
+	// market name (which can also be passed), has the handicap
+	// for both teams so have to increment the number of matches to suit
+	if (isRunner) {
+		return match ? match.length === 1 : false;
+	} else {
+		return match ? match.length === 2 : false;
+	}
 }
 
 function isUnderOverMarket(market) {
@@ -475,13 +485,13 @@ function getMarketType(market, exchange) {
 				if (isUnderOverMarket(market)) {
 					if (isAsianDoubleLine(runnerToTest)) {
 						return "ASIAN_HANDICAP";
-					} else if (isAsianSingleLine(runnerToTest)) {
+					} else if (isAsianSingleLine(runnerToTest, true)) {
 						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "TOTAL_SCORE";
 					}
 				} else {
 					if (isAsianDoubleLine(runnerToTest)) {
 						return "ASIAN_HANDICAP";
-					} else if (isAsianSingleLine(runnerToTest)) {
+					} else if (isAsianSingleLine(runnerToTest, true)) {
 						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "ASIAN_HANDICAP";
 					} else if (isWholeNumberHandicap(runnerToTest)) {
 						return "HANDICAP";

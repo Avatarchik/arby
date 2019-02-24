@@ -20,7 +20,7 @@ import {
 	MarketBettingType
 } from "../../../lib/enums/exchanges/betfair/betting";
 import { Operations as AccountOperations } from "../../../lib/enums/exchanges/betfair/account";
-import * as helpers from "../../../lib/helpers";
+import * as helpers from "../../helpers";
 import { isDeepStrictEqual } from "util";
 
 const BETTING = "Betting";
@@ -349,21 +349,19 @@ export async function init() {
 
 		events = await getEvents(eventTypeIds);
 		trueEvents = removeBogusTennisEvents(events);
-		// fs.writeFileSync("betfair_events.json", JSON.stringify(trueEvents));
-		// console.log("::: number of events: ", trueEvents.length);
 		eventIds = trueEvents.map(event => event.event.id);
 
 		marketCatalogues = await getMarketCatalogues(eventIds);
-
-		marketCatalogues.forEach(catalogue => console.log(catalogue));
-		// console.log(uniqBy(marketCatalogues, (catalogue) => catalogue.description.bettingType));
 
 		marketIds = marketCatalogues.map(catalogue => catalogue.marketId);
 
 		marketBooks = await getMarketBooks(marketIds);
 
 		console.timeEnd("betfair");
-		return helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
+		console.time("betfair-build-events");
+		const toReturn = helpers.betfair_buildFullEvents(marketCatalogues, marketBooks);
+		console.timeEnd("betfair-build-events");
+		return toReturn;
 	} catch (err) {
 		handleApiException(err);
 	}

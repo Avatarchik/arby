@@ -5,7 +5,7 @@ import BettingApi from "./apis/betting";
 import AccountsApi from "./apis/account";
 import MatchbookConfig from "./config";
 
-import * as helpers from "../../../lib/helpers";
+import * as helpers from "../../helpers";
 
 let matchbookConfig;
 let accountsApi;
@@ -51,7 +51,7 @@ async function getEvents(sportIds) {
 		),
 		before: String(
 			moment()
-				.add(2, "day")
+				.add(1, "day")
 				.unix()
 		),
 		states: "open",
@@ -90,7 +90,6 @@ export async function init() {
 	let sports;
 	let sportsIds;
 	let events;
-	let mutatedEvents;
 
 	matchbookConfig = new MatchbookConfig();
 
@@ -108,18 +107,18 @@ export async function init() {
 
 		events = await getEvents(sportsIds);
 
-		let thingsToRight = [];
-		events.forEach(event => {
-			event.markets.forEach(market => {
-				thingsToRight.push({
-					name: market.name,
-					type: market["market-type"],
-					runnerNo: market.runners.length,
-					runners: market.runners.map(runner => runner.name)
-				});
-			});
-		});
-		fs.writeFileSync("./matchbook_events.json", JSON.stringify(thingsToRight));
+		// let thingsToRight = [];
+		// events.forEach(event => {
+		// 	event.markets.forEach(market => {
+		// 		thingsToRight.push({
+		// 			name: market.name,
+		// 			type: market["market-type"],
+		// 			runnerNo: market.runners.length,
+		// 			runners: market.runners.map(runner => runner.name)
+		// 		});
+		// 	});
+		// });
+		// fs.writeFileSync("./matchbook_events.json", JSON.stringify(thingsToRight));
 
 		console.timeEnd("matchbook");
 		return helpers.matchbook_buildFullEvents(events);

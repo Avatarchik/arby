@@ -11,10 +11,8 @@ import { matchMarkets } from "./calcs";
 
 const app = express();
 const log = console.log;
-const bookies = [
-	// "BETFAIR"
-	"MATCHBOOK"
-];
+const bookies = ["BETFAIR", "MATCHBOOK"];
+const clusterMap = {};
 
 let worker;
 let matchbookEvents;
@@ -41,8 +39,9 @@ if (cluster.isMaster) {
 
 	for (let i = 0; i < bookies.length; i++) {
 		worker = cluster.fork({
-			bookie: bookies[i]
+			workerId: bookies[i]
 		});
+		clusterMap[worker.id] = bookies[i];
 
 		worker.on("message", message => {
 			switch (message.bookie) {
@@ -74,19 +73,19 @@ if (cluster.isMaster) {
 	}
 
 	cluster.on("online", worker => {
-		console.log(`Worker ${worker.id} is now online after it has been forked`);
+		console.log(`Worker ${clusterMap[worker.id]} is now online after it has been forked`);
 	});
 	cluster.on("listening", (worker, address) => {
 		console.log(`A worker is now connected to ${address.address}:${address.port}`);
 	});
 	cluster.on("fork", worker => {
-		console.log(`New worker being forked: ${worker.id}`);
+		console.log(`New worker being forked: ${clusterMap[worker.id]}`);
 	});
 	cluster.on("exit", (worker, code, signal) => {
-		console.log(`Worker ${worker.id} died ${signal || code}`);
+		console.log(`Worker ${clusterMap[worker.id]} died ${signal || code}`);
 	});
 	cluster.on("death", worker => {
-		console.log(`Worker ${worker.id} died`);
+		console.log(`Worker ${clusterMap[worker.id]} died`);
 	});
 } else {
 	initWorker();

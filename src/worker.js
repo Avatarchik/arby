@@ -5,10 +5,10 @@ import fs from "fs";
 export async function initWorker() {
 	let builtEvents;
 
-	switch (process.env.bookie) {
+	switch (process.env.workerId) {
 		case "BETFAIR":
 			builtEvents = await BetfairInit();
-			fs.writeFileSync("betfair_events.json", JSON.stringify(builtEvents.map(event => event.name)));
+			// fs.writeFileSync("betfair_events.json", JSON.stringify(builtEvents.map(event => event.name)));
 
 			process.send({
 				bookie: "BETFAIR",
@@ -17,7 +17,6 @@ export async function initWorker() {
 			break;
 		case "MATCHBOOK":
 			builtEvents = await MatchbookInit();
-			fs.writeFileSync("matchbook_events.json", JSON.stringify(builtEvents.map(event => event.name)));
 
 			process.send({
 				bookie: "MATCHBOOK",
