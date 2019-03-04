@@ -1,6 +1,6 @@
-import { flattenDeep, uniq, mapValues, groupBy, values, flatten } from "lodash";
-import { getCode, overwrite } from "country-list";
-import MarketTypes from "../lib/enums/marketTypes";
+import { flattenDeep, uniq, mapValues, groupBy, values, flatten } from "lodash"
+import { getCode, overwrite } from "country-list"
+import MarketTypes from "../lib/enums/marketTypes"
 
 // Some bookies (Matchbook especially) give country codes that this library does not map correctly
 // So these are overrides for those names
@@ -32,15 +32,38 @@ overwrite([
 	{
 		code: "-",
 		name: "U.A.E."
+	},
+	{
+		code: "RU",
+		name: "Russia"
+	},
+	{
+		code: "-",
+		name: "Asia"
 	}
-]);
+])
 
 function checkIfAbleToLay(funds, layPrice) {
-	return getLiability(1, layPrice) < funds;
+	return getLiability(1, layPrice) < funds
 }
 
-function getLiability(amountStaked, odds) {
-	return amountStaked * odds - amountStaked;
+/**
+ * The following 2 functions were calulated by: https://help.smarkets.com/hc/en-gb/articles/115001199231-Back-to-Lay-betting-strategy-
+ */
+function getProfitForBack(odds, stake) {
+	return (odds.back - 1) * stake.back - (odds.lay - 1) * stake.lay
+}
+
+function getProfitForLay(stake, commission) {
+	return stake.lay * (1 - commission) - stake.back
+}
+
+function getStakeForLay(backPrice, backStake, layOdds, commission) {
+	return (backPrice * backStake) / (layOdds - commission)
+}
+
+function getLiability(stake, odds) {
+	return stake * (odds - 1)
 }
 
 function getIndividualRunners(markets) {
@@ -51,28 +74,28 @@ function getIndividualRunners(markets) {
 					marketId: market.marketId,
 					marketName: market.marketName,
 					runner
-				};
-			});
+				}
+			})
 		})
-	);
+	)
 }
 
 function getSumOfPrices(markets) {
-	let backPrices;
+	let backPrices
 
 	return markets.reduce((mAcc, mCurr) => {
-		backPrices = getArrOfPricesFromRunner(mCurr.runnerToBack).back;
+		backPrices = getArrOfPricesFromRunner(mCurr.runnerToBack).back
 
-		return mAcc + Math.min(...backPrices);
-	}, 0);
+		return mAcc + Math.min(...backPrices)
+	}, 0)
 }
 
-function getArrOfPricesFromRunner(runner) {
-	return {
-		back: runner.exchangePrices.availableToBack.map(back => back.price),
-		lay: runner.exchangePrices.availableToLay.map(lay => lay.price)
-	};
-}
+// function getArrOfPricesFromRunner(runner) {
+// 	return {
+// 		back: runner.exchangePrices.availableToBack.map(back => back.price),
+// 		lay: runner.exchangePrices.availableToLay.map(lay => lay.price)
+// 	};
+// }
 
 /**
  * @param {Array} markets - An array of markets
@@ -81,24 +104,24 @@ function getArrOfPricesFromRunner(runner) {
  * 					In theory, this should allocates larger amounts of funds to runners with LOWER prices so have a HIGHER chance of being successful
  */
 export function allocateFundsPerRunner(markets, funds) {
-	const sumOfLowestPricesBackRunners = getSumOfPrices(markets);
+	const sumOfLowestPricesBackRunners = getSumOfPrices(markets)
 
-	let percentage;
-	let priceToBet;
-	let pricesOfRunnerToBack;
-	let lowestPriceOfRunnerToBack;
+	let percentage
+	let priceToBet
+	let pricesOfRunnerToBack
+	let lowestPriceOfRunnerToBack
 
 	markets.forEach(market => {
-		pricesOfRunnerToBack = getArrOfPricesFromRunner(market.runnerToBack).back;
-		lowestPriceOfRunnerToBack = Math.min(...pricesOfRunnerToBack);
-		percentage = Math.round((lowestPriceOfRunnerToBack / sumOfLowestPricesBackRunners) * 100);
-		priceToBet = (funds * (percentage / 100)).toFixed(2);
+		pricesOfRunnerToBack = getArrOfPricesFromRunner(market.runnerToBack).back
+		lowestPriceOfRunnerToBack = Math.min(...pricesOfRunnerToBack)
+		percentage = Math.round((lowestPriceOfRunnerToBack / sumOfLowestPricesBackRunners) * 100)
+		priceToBet = (funds * (percentage / 100)).toFixed(2)
 
-		market.runnerToBack.priceToBet = priceToBet;
-		market.runnerToBack.lowestPrice = lowestPriceOfRunnerToBack;
-	});
+		market.runnerToBack.priceToBet = priceToBet
+		market.runnerToBack.lowestPrice = lowestPriceOfRunnerToBack
+	})
 
-	return markets;
+	return markets
 }
 
 /**
@@ -115,26 +138,26 @@ function getMaximumMarketsToBet(markets, funds, minimumToBet) {
 				marketId: market.marketId,
 				selectionId: market.runnerToBack.selectionId,
 				lowestPrice: Math.min(...getArrOfPricesFromRunner(market.runnerToBack).back)
-			};
+			}
 		})
-		.sort((a, b) => a.lowestPrice - b.lowestPrice);
-	const maximumNumberOfRunnersAllowed = funds / minimumToBet;
+		.sort((a, b) => a.lowestPrice - b.lowestPrice)
+	const maximumNumberOfRunnersAllowed = funds / minimumToBet
 
-	let marketsAllowed = [];
+	let marketsAllowed = []
 
 	for (let i = 0; i < maximumNumberOfRunnersAllowed - 1; i++) {
-		marketsAllowed.push(marketsRunnersToBack[i]);
+		marketsAllowed.push(marketsRunnersToBack[i])
 	}
 
 	return markets.filter(market => {
 		return marketsAllowed.find(mainMarket => {
-			return mainMarket.marketId === market.marketId;
-		});
-	});
+			return mainMarket.marketId === market.marketId
+		})
+	})
 }
 
 function removeDuplicateSchedules(schedule) {
-	return uniq(schedule);
+	return uniq(schedule)
 }
 
 /**
@@ -142,64 +165,64 @@ function removeDuplicateSchedules(schedule) {
  * @returns {Object} Constructed object with event types holding an array of unique market start times
  */
 export function extractSchedules(markets) {
-	let sortedSchedules = {};
+	let sortedSchedules = {}
 
 	markets.forEach(market => {
 		if (!sortedSchedules[market.eventType.name]) {
-			sortedSchedules[market.eventType.name] = [];
+			sortedSchedules[market.eventType.name] = []
 		}
 
-		sortedSchedules[market.eventType.name].push(market.marketStartTime);
-	});
-	return mapValues(sortedSchedules, removeDuplicateSchedules);
+		sortedSchedules[market.eventType.name].push(market.marketStartTime)
+	})
+	return mapValues(sortedSchedules, removeDuplicateSchedules)
 }
 
 export function determineMarketsToPlaceOrder(markets, funds) {
-	const maxMarkets = getMaximumMarketsToBet(markets, funds, 2);
-	const spreadBetting = 0.5;
-	const numberOfMarketsToGet = Math.ceil(maxMarkets.length * spreadBetting);
+	const maxMarkets = getMaximumMarketsToBet(markets, funds, 2)
+	const spreadBetting = 0.5
+	const numberOfMarketsToGet = Math.ceil(maxMarkets.length * spreadBetting)
 
-	return maxMarkets.splice(0, numberOfMarketsToGet);
+	return maxMarkets.splice(0, numberOfMarketsToGet)
 }
 
 /**
  * @param {Array} runners - An array of runners
  * @return {Object} Single runner which has the SMALLEST available price to back
  */
-function getRunnerSmallestBackPrice(runners) {
-	// TODO: Set this to the price limit threshold I set
-	let smallestPrice = 2;
-	let smallestPriceOfCurrentRunner;
-	let backPricesOfCurrentRunner;
-	let runnerToBack;
+// function getRunnerSmallestBackPrice(runners) {
+// 	// TODO: Set this to the price limit threshold I set
+// 	let smallestPrice = 2;
+// 	let smallestPriceOfCurrentRunner;
+// 	let backPricesOfCurrentRunner;
+// 	let runnerToBack;
 
-	runners.forEach(runner => {
-		backPricesOfCurrentRunner = runner.exchangePrices.availableToBack.map(back => back.price);
-		smallestPriceOfCurrentRunner = Math.min(...backPricesOfCurrentRunner);
+// 	runners.forEach(runner => {
+// 		backPricesOfCurrentRunner = runner.exchangePrices.availableToBack.map(back => back.price);
+// 		smallestPriceOfCurrentRunner = Math.min(...backPricesOfCurrentRunner);
 
-		if (smallestPriceOfCurrentRunner < smallestPrice) {
-			smallestPrice = smallestPriceOfCurrentRunner;
-			runnerToBack = runner;
-		}
-	});
+// 		if (smallestPriceOfCurrentRunner < smallestPrice) {
+// 			smallestPrice = smallestPriceOfCurrentRunner;
+// 			runnerToBack = runner;
+// 		}
+// 	});
 
-	return runnerToBack;
-}
+// 	return runnerToBack;
+// }
 
 /**
  * @param {Array} markets - An array of markets
  * @returns {Array} Same markets with a 'runnerToBack' property calculated by the runner with the SMALLEST possible price to back
  */
-export function findBackerForEachMarket(markets) {
-	return markets
-		.map(market => {
-			return {
-				...market,
-				runnerToBack: getRunnerSmallestBackPrice(market.runners)
-			};
-		})
-		.filter(market => market.runnerToBack);
-}
+// export function findBackerForEachMarket(markets) {
+// 	return markets
+// 		.map(market => {
+// 			return {
+// 				...market,
+// 				runnerToBack: getRunnerSmallestBackPrice(market.runners)
+// 			};
+// 		})
+// 		.filter(market => market.runnerToBack);
+// }
 
 /**
  *
@@ -208,24 +231,24 @@ export function findBackerForEachMarket(markets) {
  * @returns {Array} Markets whereby at least 1 runner has a price to back which is LOWER than the price threshold set
  * 					This will grab markets with runners that have the highest chance of coming in
  */
-export function getMarketsWithBackRunnerBelowThreshold(markets, priceLimit) {
-	return markets.map(market => {
-		return {
-			...market,
-			runners: market.runners.map(runner => {
-				return {
-					...runner,
-					exchangePrices: {
-						...runner.exchangePrices,
-						availableToBack: runner.exchangePrices.availableToBack.filter(back => {
-							return back.price < priceLimit;
-						})
-					}
-				};
-			})
-		};
-	});
-}
+// export function getMarketsWithBackRunnerBelowThreshold(markets, priceLimit) {
+// 	return markets.map(market => {
+// 		return {
+// 			...market,
+// 			runners: market.runners.map(runner => {
+// 				return {
+// 					...runner,
+// 					exchangePrices: {
+// 						...runner.exchangePrices,
+// 						availableToBack: runner.exchangePrices.availableToBack.filter(back => {
+// 							return back.price < priceLimit;
+// 						})
+// 					}
+// 				};
+// 			})
+// 		};
+// 	});
+// }
 
 /**
  *
@@ -234,11 +257,11 @@ export function getMarketsWithBackRunnerBelowThreshold(markets, priceLimit) {
  * @returns {Array} A list of readable markets constructed by combining the MarketCatalogue with the corresponding MarketBook
  */
 export function betfair_buildCompleteMarkets(catalogues, books) {
-	let marketBook;
-	let marketBookRunner;
+	let marketBook
+	let marketBookRunner
 
 	return catalogues.map(catalogue => {
-		marketBook = books.find(book => book.marketId === catalogue.marketId);
+		marketBook = books.find(book => book.marketId === catalogue.marketId)
 
 		return {
 			eventId: catalogue.event.id,
@@ -255,16 +278,16 @@ export function betfair_buildCompleteMarkets(catalogues, books) {
 			isOpen: marketBook.status === "OPEN",
 			runners: catalogue.runners.map(runner => {
 				// TODO: Filter these on ones that are 'ACTIVE'
-				marketBookRunner = marketBook.runners.find(mbRunner => mbRunner.selectionId === runner.selectionId);
+				marketBookRunner = marketBook.runners.find(mbRunner => mbRunner.selectionId === runner.selectionId)
 
 				return {
 					selectionId: runner.selectionId,
 					runnerName: runner.runnerName,
 					exchangePrices: marketBookRunner.ex
-				};
+				}
 			})
-		};
-	});
+		}
+	})
 }
 
 function getFormattedMarket(market, runners, mainMarketName) {
@@ -288,31 +311,32 @@ function getFormattedMarket(market, runners, mainMarketName) {
 				selectionId: runner.selectionId,
 				runnerName: runner.runnerName,
 				handicap: runner.handicap > 0 ? `+${runner.handicap}` : runner.handicap
-			};
+			}
 		})
-	};
+	}
 }
 
 function formatBetfairAsianHandicapMarkets_soccer(market, aRunner) {
 	// There are only 2 markets in football that are of market type Asian Handicap Double Line
 	// - Goal Lines
 	// - Asian Handicap
-	let bRunner;
+	let bRunner
 
 	if (market.marketName === "Goal Lines") {
 		bRunner = market.runners.find(runner => {
-			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId;
-		});
+			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId
+		})
 	} else if (market.marketName === "Asian Handicap") {
-		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap);
+		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap)
 	}
 
 	if (bRunner) {
 		// Removed from the array so there are no duplicate entries of markets
-		market.runners.splice(market.runners.indexOf(bRunner), 1);
+		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Goal Lines");
+		return getFormattedMarket(market, [aRunner, bRunner], "Goal Lines")
 	} else {
+		console.log("elsing")
 		// TODO: Should never get here but do need to have exception handling here
 	}
 }
@@ -321,21 +345,21 @@ function formatBetfairAsianHandicapMarkets_basketball(market, aRunner) {
 	// There are only 2 markets in football that are of market type Asian Handicap Double Line
 	// - Total Points
 	// - Handicap
-	let bRunner;
+	let bRunner
 
 	if (market.marketName === "Total Points") {
 		bRunner = market.runners.find(runner => {
-			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId;
-		});
+			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId
+		})
 	} else if (market.marketName === "Handicap") {
-		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap);
+		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap)
 	}
 
 	if (bRunner) {
 		// Removed from the array so there are no duplicate entries of markets
-		market.runners.splice(market.runners.indexOf(bRunner), 1);
+		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Total Points");
+		return getFormattedMarket(market, [aRunner, bRunner], "Total Points")
 	} else {
 		// TODO: Should never get here but do need to have exception handling here
 	}
@@ -345,22 +369,23 @@ function formatBetfairAsianHandicapMarkets_tennis(market, aRunner) {
 	// There are only 2 markets in football that are of market type Asian Handicap Double Line
 	// - Total Games
 	// - Handicap
-	let bRunner;
+	let bRunner
 
 	if (market.marketName === "Total Games") {
 		bRunner = market.runners.find(runner => {
-			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId;
-		});
+			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId
+		})
 	} else if (market.marketName === "Handicap") {
-		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap);
+		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap)
 	}
 
 	if (bRunner) {
 		// Removed from the array so there are no duplicate entries of markets
-		market.runners.splice(market.runners.indexOf(bRunner), 1);
+		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Total Games");
+		return getFormattedMarket(market, [aRunner, bRunner], "Total Games")
 	} else {
+		console.log("why you here?!")
 		// TODO: Should never get here but do need to have exception handling here
 	}
 }
@@ -370,16 +395,16 @@ function formatBetfairAsianHandicapMarkets(market) {
 		.map(runner => {
 			switch (market.eventType.name) {
 				case "Soccer":
-					return formatBetfairAsianHandicapMarkets_soccer(market, runner);
+					return formatBetfairAsianHandicapMarkets_soccer(market, runner)
 				case "Tennis":
-					return formatBetfairAsianHandicapMarkets_tennis(market, runner);
+					return formatBetfairAsianHandicapMarkets_tennis(market, runner)
 				case "Basketball":
-					return formatBetfairAsianHandicapMarkets_basketball(market, runner);
+					return formatBetfairAsianHandicapMarkets_basketball(market, runner)
 				default:
-					return "Oh no!";
+					return "Oh no!"
 			}
 		})
-		.filter(market => market);
+		.filter(market => market)
 }
 
 function getMarketsOnlyTwoRunners(markets, exchange) {
@@ -388,24 +413,22 @@ function getMarketsOnlyTwoRunners(markets, exchange) {
 		// Instead, we want to filter the Asian Handicaps into separate markets
 		switch (exchange) {
 			case "betfair":
-				return market.description.bettingType.includes("ASIAN") || market.runners.length === 2;
+				return market.description.bettingType.includes("ASIAN") || market.runners.length === 2
 			case "matchbook":
-				return market["market-type"] || market.runners.length === 2;
+				return market["market-type"] || market.runners.length === 2
 		}
-	});
+	})
 }
 
 function formatMarkets(markets, exchange) {
-	const marketsOnlyTwoRunners = getMarketsOnlyTwoRunners(markets, exchange);
-
 	return flatten(
 		markets.map(market => {
 			switch (exchange) {
 				case "betfair":
 					if (market.description.bettingType === "ASIAN_HANDICAP_DOUBLE_LINE") {
-						return formatBetfairAsianHandicapMarkets(market);
+						return formatBetfairAsianHandicapMarkets(market)
 					} else {
-						return [market];
+						return [market]
 					}
 				case "matchbook":
 					switch (market["market-type"]) {
@@ -414,52 +437,52 @@ function formatMarkets(markets, exchange) {
 								return {
 									...market,
 									name: `Over/Under ${market.runners[0].name.replace(/^\D+/g, "")}`
-								};
+								}
 							} else {
-								console.log("debug");
+								console.log("debug")
 							}
-							break;
+							break
 						case "handicap":
 							return {
 								...market,
 								name: market.runners.map(runner => runner.name).join("/")
-							};
+							}
 						default:
-							return market;
+							return market
 					}
 			}
 		})
-	);
+	)
 }
 
 // - (+1)
 // - -2.0
 // - +3
 function isWholeNumberHandicap(name) {
-	return new RegExp(/(\(?[+-]\d\.?[0-0]{1}?\)?)/).test(name);
+	return new RegExp(/(\(?[+-]\d\.?[0-0]{1}?\)?)/).test(name)
 }
 
 // (.5/.75)
 // (1.5/2.0)
 // (+.75/1.0)
 export function isAsianDoubleLine(name) {
-	return new RegExp(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/).test(name);
+	return new RegExp(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/).test(name)
 }
 
 // (+1.5)
 // 2.75
 // -3.0
 export function isAsianSingleLine(name, isRunner) {
-	const match = name.match(/(\(?[+-]?\d?\.\d{1,2}\)?)/g);
+	const match = name.match(/(\(?[+-]?\d?\.\d{1,2}\)?)/g)
 
 	// An Asian Double Line market would match twice...
 	// A runner will only have the handicap for 1 team whereas a
 	// market name (which can also be passed), has the handicap
 	// for both teams so have to increment the number of matches to suit
 	if (isRunner) {
-		return match ? match.length === 1 : false;
+		return match ? match.length === 1 : false
 	} else {
-		return match ? match.length === 2 : false;
+		return match ? match.length === 2 : false
 	}
 }
 
@@ -468,72 +491,72 @@ function isUnderOverMarket(market) {
 		return (
 			(market.runners[0].name.includes("OVER") || market.runners[0].name.includes("UNDER")) &&
 			(market.runners[1].name.includes("OVER") || market.runners[1].name.includes("UNDER"))
-		);
+		)
 	}
-	return false;
+	return false
 }
 
 function getMarketType(market, exchange) {
-	let actual;
-	let runnerToTest;
+	let actual
+	let runnerToTest
 
 	switch (exchange) {
 		case "matchbook":
-			runnerToTest = market.runners[0].name;
+			runnerToTest = market.runners[0].name
 
 			if (market.runners.length === 2) {
 				if (isUnderOverMarket(market)) {
 					if (isAsianDoubleLine(runnerToTest)) {
-						return "ASIAN_HANDICAP";
+						return "ASIAN_HANDICAP"
 					} else if (isAsianSingleLine(runnerToTest, true)) {
-						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "TOTAL_SCORE";
+						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "TOTAL_SCORE"
 					}
 				} else {
 					if (isAsianDoubleLine(runnerToTest)) {
-						return "ASIAN_HANDICAP";
+						return "ASIAN_HANDICAP"
 					} else if (isAsianSingleLine(runnerToTest, true)) {
-						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "ASIAN_HANDICAP";
+						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "ASIAN_HANDICAP"
 					} else if (isWholeNumberHandicap(runnerToTest)) {
-						return "HANDICAP";
+						return "HANDICAP"
 					}
 				}
 			}
-			actual = MarketTypes.find(type => market["market-type"].toUpperCase() === type.actualType);
+			actual = MarketTypes.find(type => market["market-type"].toUpperCase() === type.actualType)
 
 			if (actual) {
-				return actual.actualType;
+				return actual.actualType
 			}
 
 			actual = MarketTypes.find(type => {
-				return type.potentialTypes.indexOf(market["market-type"].toUpperCase()) > -1;
-			});
+				return type.potentialTypes.indexOf(market["market-type"].toUpperCase()) > -1
+			})
 
 			if (actual) {
-				return actual.actualType;
+				return actual.actualType
 			}
-			return market["market-type"] ? market["market-type"].toUpperCase() : "-";
+			return market["market-type"] ? market["market-type"].toUpperCase() : "-"
 		case "betfair":
-			actual = MarketTypes.find(type => market.description.marketType === type.actualType);
+			actual = MarketTypes.find(type => market.description.marketType === type.actualType)
 
 			if (actual) {
-				return actual.actualType;
+				return actual.actualType
 			}
 
 			actual = MarketTypes.find(type => {
 				if (market.description.marketType === "MATCH_ODDS") {
 					return market.eventType.name === "Soccer" || market.eventType.name === "Rugby Union" || market.eventType.name === "Rugby League"
 						? "ONE_X_TWO"
-						: "ONE_TWO";
+						: "ONE_TWO"
 				}
-				return type.potentialTypes.indexOf(market.description.marketType) > -1;
-			});
+				return type.potentialTypes.indexOf(market.description.marketType) > -1
+			})
 
 			if (actual) {
-				return actual.actualType;
+				return actual.actualType
 			}
-			return market.description.marketType || "-";
+			return market.description.marketType || "-"
 		default:
-			return "Oh no!";
+			return "Oh no!"
 	}
 }
 
@@ -578,15 +601,15 @@ function getMarketType(market, exchange) {
 export function matchbook_buildFullEvents(events) {
 	return events
 		.map(event => {
-			const metaTags = event["meta-tags"];
-			const countryTag = metaTags.find(tag => tag.type === "COUNTRY");
-			const eventTypeTag = metaTags.find(tag => tag.type === "SPORT");
+			const metaTags = event["meta-tags"]
+			const countryTag = metaTags.find(tag => tag.type === "COUNTRY")
+			const eventTypeTag = metaTags.find(tag => tag.type === "SPORT")
 
 			if (countryTag && getCode(countryTag.name) === undefined) {
-				console.log(countryTag.name);
+				console.log(countryTag.name)
 			}
 			if (!countryTag) {
-				console.log(event);
+				console.log(event)
 			}
 
 			return {
@@ -604,21 +627,24 @@ export function matchbook_buildFullEvents(events) {
 							return {
 								id: runner.id || "-",
 								name: runner.name || "-",
-								prices: runner.prices.map(price => price.odds)
-							};
+								prices: {
+									back: runner.prices.filter(price => price.side === "back").map(price => price.odds),
+									lay: runner.prices.filter(price => price.side === "lay").map(price => price.odds)
+								}
+							}
 						})
-					};
+					}
 				})
-			};
+			}
 		})
-		.filter(event => event.markets.length);
+		.filter(event => event.markets.length)
 }
 
 export function betfair_buildFullEvents(marketCatalogues, marketBooks) {
-	const groupByEventId = groupBy(marketCatalogues, catalogue => catalogue.event.id);
+	const groupByEventId = groupBy(marketCatalogues, catalogue => catalogue.event.id)
 
-	let marketBook;
-	let marketBookRunner;
+	let marketBook
+	let marketBookRunner
 
 	return values(
 		mapValues(groupByEventId, markets => {
@@ -629,27 +655,42 @@ export function betfair_buildFullEvents(marketCatalogues, marketBooks) {
 				// competitors: getCompetitors(markets[0].eventType.name, markets, "betfair"),
 				country: markets[0].event.countryCode || "-",
 				markets: formatMarkets(markets, "betfair").map(market => {
-					marketBook = marketBooks.find(book => book.marketId === market.marketId);
+					console.log(market.marketId)
+					marketBook = marketBooks.find(book => book.marketId === market.marketId)
+
+					// TODO: Sometimes the 'marketBook' will be undefined as the 'marketId' can sometimes
+					// not match due to formatting of handicap markets
+					// console.log("Market ID: ", market.marketId);
+					// console.log("Market Name: ", market.marketName);
+					// console.log("Market book found: ", marketBook)
+					// console.log("\n")
 
 					return {
 						id: market.marketId || "-",
 						name: market.marketName || "-",
 						type: getMarketType(market, "betfair"),
 						runners: market.runners.map(runner => {
+							if (!marketBook) {
+								console.log(marketBooks)
+								console.log(market.marketId)
+							}
 							marketBookRunner = marketBook.runners.find(mRunner => {
-								return String(mRunner.selectionId) === String(runner.selectionId) && runner.handicap === mRunner.handicap;
-							});
+								return String(mRunner.selectionId) === String(runner.selectionId) && runner.handicap === mRunner.handicap
+							})
 
 							return {
 								id: runner.selectionId || "-",
 								name: runner.runnerName,
 								handicap: runner.handicap,
-								prices: marketBookRunner ? marketBookRunner.ex.availableToBack.map(ex => ex.price) : []
-							};
+								prices: {
+									back: marketBookRunner ? marketBookRunner.ex.availableToBack.map(ex => ex.price) : [],
+									lay: marketBookRunner ? marketBookRunner.ex.availableToLay.map(ex => ex.price) : []
+								}
+							}
 						})
-					};
+					}
 				})
-			};
+			}
 		})
-	).filter(event => event.markets.length);
+	).filter(event => event.markets.length)
 }
