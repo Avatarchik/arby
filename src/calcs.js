@@ -4,6 +4,7 @@ import ArbTable from "../lib/arb-table"
 import { isAsianDoubleLine, isAsianSingleLine } from "./helpers"
 import BetfairConfig from "./exchanges/betfair/config"
 import MatchbookConfig from "./exchanges/matchbook/config"
+import { ENGINE_METHOD_PKEY_ASN1_METHS } from "constants"
 
 function getExchangesToCompare(exchanges, exchangeBeingChecked, exchangesChecked) {
 	return filter(exchanges, exchange => {
@@ -196,36 +197,40 @@ function getPotentialArb(prices, prioritiesTried, exchanges) {
 	}
 }
 
-function getSmallestLayPrices(runner1, runner2) {
+function getRunnersLayPrices(runner1, runner2) {
 	return [
 		{
 			id: runner1.id,
 			name: runner1.name,
 			market: 1,
-			smallest: Math.min(...runner1.prices.lay)
+			smallest: Math.min(...runner1.prices.lay),
+			largest: Math.max(...runner2.prices.lay)
 		},
 		{
 			id: runner2.id,
 			name: runner2.name,
 			market: 2,
-			smallest: Math.min(...runner2.prices.lay)
+			smallest: Math.min(...runner2.prices.lay),
+			largest: Math.max(...runner2.prices.lay)
 		}
 	]
 }
 
-function getSmallestBackPrices(runner1, runner2) {
+function getRunnersBackPrices(runner1, runner2) {
 	return [
 		{
 			id: runner1.id,
 			name: runner1.name,
 			market: 1,
-			smallest: Math.min(...runner1.prices.back)
+			smallest: Math.min(...runner1.prices.back),
+			largest: Math.max(...runner1.prices.back)
 		},
 		{
 			id: runner2.id,
 			name: runner2.name,
 			market: 2,
-			smallest: Math.min(...runner2.prices.back)
+			smallest: Math.min(...runner2.prices.back),
+			largest: Math.max(...runner2.prices.back)
 		}
 	]
 }
@@ -268,7 +273,7 @@ function getBestArb(potentialArbs) {
 	 */
 }
 
-function findBackLayArb(market, runners, possibleArbs, exchanges) {
+function findBackLayArbs(market, runners, possibleArbs, exchanges) {
 	let largestBackPrice
 	let market2Runner
 	let market1Runner
@@ -277,7 +282,7 @@ function findBackLayArb(market, runners, possibleArbs, exchanges) {
 	if (runners.length) {
 		market1Runner = runners[0]
 		market2Runner = getSameRunner(market1Runner, market.market2.runners)
-		smallestLayPrices = getSmallestLayPrices(market1Runner, market2Runner)
+		smallestLayPrices = getRunnersLayPrices(market1Runner, market2Runner)
 
 		// Again...there are no prices already so pointless going further than this
 		// Worth investigating whether I could set the 1st price? Probably...
@@ -314,7 +319,7 @@ function findBackLayArb(market, runners, possibleArbs, exchanges) {
 			}
 			runners.splice(market1Runner, 1)
 
-			return findBackLayArb(market, runners, possibleArbs, exchanges)
+			return findBackLayArbs(market, runners, possibleArbs, exchanges)
 		}
 	}
 
@@ -324,7 +329,7 @@ function findBackLayArb(market, runners, possibleArbs, exchanges) {
 	// No arbs found at all :(
 }
 
-function findBackBackArb(backPrices, market, exchanges, arbPrioritiesTried) {
+function findBackBackArbs(backPrices, market, exchanges, arbPrioritiesTried) {
 	// Tested all potential arb outcomes so quit as no arb :(
 	if (arbPrioritiesTried && arbPrioritiesTried.length === 9) {
 		return {}
@@ -345,9 +350,9 @@ function findBackBackArb(backPrices, market, exchanges, arbPrioritiesTried) {
 				return potentialArb
 			} else {
 				if (arbPrioritiesTried && arbPrioritiesTried.length) {
-					return findBackBackArb(backPrices, market, exchanges, [...arbPrioritiesTried, potentialArb.arb.priority])
+					return findBackBackArbs(backPrices, market, exchanges, [...arbPrioritiesTried, potentialArb.arb.priority])
 				} else {
-					return findBackBackArb(backPrices, market, exchanges, [potentialArb.arb.priority])
+					return findBackBackArbs(backPrices, market, exchanges, [potentialArb.arb.priority])
 				}
 			}
 		}
@@ -358,17 +363,21 @@ function findBackBackArb(backPrices, market, exchanges, arbPrioritiesTried) {
 }
 
 function findArbs(event) {
-	let smallestBackPrices
+	let runnersBackPrices
 	let market2Runner
 	let market1Runner
 
-	return event.matchedMarkets
+	const arby = event.matchedMarkets
 		.map(market => {
 			if (market.market1.runners.length) {
 				if (market.market1.runners.length === 2) {
 					market1Runner = market.market1.runners[0]
 					market2Runner = getSameRunner(market1Runner, market.market2.runners)
-					smallestBackPrices = getSmallestBackPrices(market1Runner, market2Runner)
+					runnersBackPrices = getRunnersBackPrices(market1Runner, market2Runner)
+
+					// TODO: The way this is written at the moment will only check 1 runner...
+					// I.e. Over/Under markets will only check 1 (i.e. Over)
+					// As I only 'getSameRunner' for 1 of them and only return that once per market
 
 					// Hmmm...a check for now but is it possible for me to be the 1st price?
 					if (
@@ -379,7 +388,7 @@ function findArbs(event) {
 					) {
 						return {
 							type: "BackBack",
-							arbs: findBackBackArb(smallestBackPrices, market, {
+							arbs: findBackBackArbs(runnersBackPrices, market, {
 								ex1: event.ex1,
 								ex2: event.ex2
 							})
@@ -389,7 +398,7 @@ function findArbs(event) {
 				} else {
 					return {
 						type: "BackLay",
-						arbs: findBackLayArb(market, market.market1.runners, [], {
+						arbs: findBackLayArbs(market, market.market1.runners, [], {
 							ex1: event.ex1,
 							ex2: event.ex2
 						})
@@ -402,6 +411,8 @@ function findArbs(event) {
 				return arb.arbs instanceof Array ? arb.arbs.length : Object.keys(arb.arbs).length
 			}
 		})
+
+	return arby
 }
 
 function placeArbs(event) {}
