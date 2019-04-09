@@ -12,7 +12,7 @@ export default class ExchangeConfig {
 		// - 2 goal or more
 		//
 		// I can already do this using TOTAL types of Under/Over halves or HANDICAP types of Under/Over quarters
-		this._betOnAsianHandicapSingleLine = false
+		this._betOnAsianHandicapSingleLine = true
 		this._betOnAsianHandicapDoubleLine = true
 		this._sportsToUse = [
 			"Soccer"

@@ -1,6 +1,7 @@
 import { flattenDeep, uniq, mapValues, groupBy, values, flatten } from "lodash"
 import { getCode, overwrite } from "country-list"
 import MarketTypes from "../lib/enums/marketTypes"
+import { parse } from "querystring"
 
 // Some bookies (Matchbook especially) give country codes that this library does not map correctly
 // So these are overrides for those names
@@ -293,12 +294,45 @@ export function betfair_buildCompleteMarkets(catalogues, books) {
 function getFormattedMarket(market, runners, mainMarketName) {
 	// The reason 'eventType' & 'description' are how they are is because I need to structure of the market to be the same as
 	// markets that have not been altered as I want to access these properties the same way
+	function getMarketName() {
+		const r0Handicap = parseFloat(runners[0].handicap)
+		const r1Handicap = parseFloat(runners[1].handicap)
+		const handicapMod = parseFloat(runners[0].handicap) % 1
+		const posR0 = r0Handicap > 0
+		const posR1 = r1Handicap > 0
+		const r0name = runners[0].runnerName
+		const r1name = runners[1].runnerName
+		const r0Lower = r0Handicap - 0.25
+		const r0Upper = r0Handicap + 0.25
+		const r1Lower = r1Handicap - 0.25
+		const r1Upper = r1Handicap + 0.25
+
+		let r0HandicapName = ""
+		let r1HandicapName = ""
+
+		// Quarter line
+		// For my benefit, want to format this name so that it is understandable that the stake will be split
+		if (handicapMod === 0.25 || handicapMod === -0.25 || handicapMod === 0.75 || handicapMod === -0.75) {
+			r0HandicapName = posR0
+				? `(+${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)})`
+				: `(-${!r0Handicap || !r0Upper ? r0Upper.toFixed(1) : r0Upper.toFixed(1).substr(1)}/${r0Lower.toFixed(1).substr(1)})`
+			r1HandicapName = posR1
+				? `(+${r1Lower.toFixed(1)}/${r1Upper.toFixed(1)})`
+				: `(-${!r1Handicap || !r1Upper ? r1Upper.toFixed(1) : r1Upper.toFixed(1).substr(1)}/${r1Lower.toFixed(1).substr(1)})`
+
+			return `${r0name} ${r0HandicapName}/${r1name} ${r1HandicapName}`
+		}
+		if (market.marketName !== mainMarketName) {
+			// For any sport, the mainMarketName is NOT the handicap market that Betfair gives us
+			// Therefore, this condition is truthy for handicap markets
+			return `${r0name} ${posR0 ? "+" : ""}${r0Handicap.toFixed(1)}/${r1name} ${posR1 ? "+" : ""}${r1Handicap.toFixed(1)}`
+		}
+		return `${r0name}/${r1name} ${r0Handicap.toFixed(1)}`
+	}
+
 	return {
 		marketId: market.marketId,
-		marketName:
-			market.marketName === mainMarketName
-				? `${runners[0].runnerName}/${runners[1].runnerName} ${runners[0].handicap}`
-				: `${runners[0].runnerName} ${runners[0].handicap}/${runners[1].runnerName} ${runners[1].handicap}`,
+		marketName: getMarketName(),
 		eventType: {
 			name: market.eventType.name
 		},
@@ -390,6 +424,19 @@ function formatBetfairAsianHandicapMarkets_tennis(market, aRunner) {
 	}
 }
 
+// function sortSingleDoubleLineRunners(runners) {
+// 	// TODO: Find the runners with same selectionId and combine them to be a double line
+// 	const groupedSelections = groupBy(runners, 'selectionId')
+
+// 	console.log(groupedSelections)
+
+// 	Object.keys(groupedSelections).map((acc, group) => {
+// 		if (group.handicap % 0.5 === 0) {
+
+// 		}
+// 	})
+// }
+
 function formatBetfairAsianHandicapMarkets(market) {
 	return market.runners
 		.map(runner => {
@@ -404,7 +451,11 @@ function formatBetfairAsianHandicapMarkets(market) {
 					return "Oh no!"
 			}
 		})
-		.filter(market => market)
+		.filter(market => {
+			if (market) {
+				return market
+			}
+		})
 }
 
 function getMarketsOnlyTwoRunners(markets, exchange) {
@@ -458,22 +509,22 @@ function formatMarkets(markets, exchange) {
 // - (+1)
 // - -2.0
 // - +3
-function isWholeNumberHandicap(name) {
+function isAsianFullLine(name) {
 	return new RegExp(/(\(?[+-]\d\.?[0-0]{1}?\)?)/).test(name)
 }
 
 // (.5/.75)
 // (1.5/2.0)
 // (+.75/1.0)
-export function isAsianDoubleLine(name) {
+export function isAsianQuarterLine(name) {
 	return new RegExp(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/).test(name)
 }
 
 // (+1.5)
-// 2.75
-// -3.0
-export function isAsianSingleLine(name, isRunner) {
-	const match = name.match(/(\(?[+-]?\d?\.\d{1,2}\)?)/g)
+// .5
+// -1.5
+export function isAsianHalfLine(name, isRunner) {
+	const match = name.match(/(\(?[+-]?\d?\.[5-5]\)?)/g)
 
 	// An Asian Double Line market would match twice...
 	// A runner will only have the handicap for 1 team whereas a
@@ -487,38 +538,33 @@ export function isAsianSingleLine(name, isRunner) {
 }
 
 function isUnderOverMarket(market) {
-	if (market.runners.length === 2) {
-		return (
-			(market.runners[0].name.includes("OVER") || market.runners[0].name.includes("UNDER")) &&
-			(market.runners[1].name.includes("OVER") || market.runners[1].name.includes("UNDER"))
-		)
-	}
-	return false
+	const runner0Name = market.runners[0].name || market.runners[0].runnerName
+	const runner1Name = market.runners[1].name || market.runners[1].runnerName
+
+	return (
+		(runner0Name.toUpperCase().includes("OVER") || runner0Name.toUpperCase().includes("UNDER")) &&
+		(runner1Name.toUpperCase().includes("OVER") || runner1Name.toUpperCase().includes("UNDER"))
+	)
 }
 
 function getMarketType(market, exchange) {
 	let actual
 	let runnerToTest
+	let handicapMod
 
 	switch (exchange) {
 		case "matchbook":
 			runnerToTest = market.runners[0].name
 
 			if (market.runners.length === 2) {
-				if (isUnderOverMarket(market)) {
-					if (isAsianDoubleLine(runnerToTest)) {
-						return "ASIAN_HANDICAP"
-					} else if (isAsianSingleLine(runnerToTest, true)) {
-						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "TOTAL_SCORE"
-					}
-				} else {
-					if (isAsianDoubleLine(runnerToTest)) {
-						return "ASIAN_HANDICAP"
-					} else if (isAsianSingleLine(runnerToTest, true)) {
-						return isWholeNumberHandicap(runnerToTest) ? "HANDICAP" : "ASIAN_HANDICAP"
-					} else if (isWholeNumberHandicap(runnerToTest)) {
-						return "HANDICAP"
-					}
+				if (isAsianQuarterLine(runnerToTest)) {
+					return "QUARTER_LINE_ASIAN_HANDICAP"
+				} else if (isAsianHalfLine(runnerToTest, true)) {
+					return "HALF_LINE_ASIAN_HANDICAP"
+				} else if (isAsianFullLine(runnerToTest)) {
+					return "FULL_LINE_ASIAN_HANDICAP"
+				} else if (isUnderOverMarket(market)) {
+					return "TOTAL_SCORE"
 				}
 			}
 			actual = MarketTypes.find(type => market["market-type"].toUpperCase() === type.actualType)
@@ -536,6 +582,17 @@ function getMarketType(market, exchange) {
 			}
 			return market["market-type"] ? market["market-type"].toUpperCase() : "-"
 		case "betfair":
+			if (market.description.bettingType === "ASIAN_HANDICAP_DOUBLE_LINE") {
+				handicapMod = parseFloat(market.runners[0].handicap) % 1
+
+				if (handicapMod === 0.25 || handicapMod === -0.25 || handicapMod === 0.75 || handicapMod === -0.75) {
+					return "QUARTER_LINE_ASIAN_HANDICAP"
+				} else if (handicapMod === -0.5 || handicapMod === 0.5) {
+					return "HALF_LINE_ASIAN_HANDICAP"
+				} else if (handicapMod === -0 || handicapMod === 0) {
+					return "FULL_LINE_ASIAN_HANDICAP"
+				}
+			}
 			actual = MarketTypes.find(type => market.description.marketType === type.actualType)
 
 			if (actual) {
@@ -655,7 +712,10 @@ export function betfair_buildFullEvents(marketCatalogues, marketBooks) {
 				// competitors: getCompetitors(markets[0].eventType.name, markets, "betfair"),
 				country: markets[0].event.countryCode || "-",
 				markets: formatMarkets(markets, "betfair").map(market => {
-					console.log(market.marketId)
+					if (market.description.bettingType === "ASIAN_HANDICAP_DOUBLE_LINE") {
+						console.log("debug")
+					}
+					// console.log(market.marketId)
 					marketBook = marketBooks.find(book => book.marketId === market.marketId)
 
 					// TODO: Sometimes the 'marketBook' will be undefined as the 'marketId' can sometimes

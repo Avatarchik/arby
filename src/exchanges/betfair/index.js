@@ -373,6 +373,7 @@ export async function init() {
 		marketCataloguesWithBooks = marketCatalogues.filter(catalogue => {
 			return marketBookIds.includes(catalogue.marketId)
 		})
+		const cityCatalogues = marketCatalogues.filter(catalogue => catalogue.event.name.indexOf("Man City") > -1)
 		return helpers.betfair_buildFullEvents(marketCataloguesWithBooks, marketBooks)
 	} catch (err) {
 		handleApiException(err)

@@ -1,7 +1,7 @@
 import { filter, uniq } from "lodash"
 import { findBestMatch } from "string-similarity"
 import ArbTable from "../lib/arb-table"
-import { isAsianDoubleLine, isAsianSingleLine } from "./helpers"
+import { isAsianQuarterLine, isAsianHalfLine } from "./helpers"
 import BetfairConfig from "./exchanges/betfair/config"
 import MatchbookConfig from "./exchanges/matchbook/config"
 
@@ -41,12 +41,12 @@ function checkHandicapsAreSame(market1, market2) {
 	let market1Handicap
 	let market2Handicap
 
-	if (isAsianDoubleLine(market1.name) && isAsianDoubleLine(market2.name)) {
+	if (isAsianQuarterLine(market1.name) && isAsianQuarterLine(market2.name)) {
 		market1Handicap = market1.name.match(/\(\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/g)
 		market2Handicap = market2.name.match(/\(\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/g)
 
 		return market1Handicap === market2Handicap
-	} else if (isAsianSingleLine(market1.name, false) && isAsianSingleLine(market2.name, false)) {
+	} else if (isAsianHalfLine(market1.name, false) && isAsianHalfLine(market2.name, false)) {
 		market1Handicap = market1.name.match(/(\(?\d?\.\d{1,2}\)?)/g)
 		market2Handicap = market2.name.match(/(\(?\d?\.\d{1,2}\)?)/g)
 
@@ -287,10 +287,13 @@ function buildBackLayArb(market, exchanges, runners, layMarketExchange) {
 	const largestBackPrice = Math.max(...backRunner.prices.back)
 	const smallestLayPrice = Math.min(...layRunner.prices.lay)
 
+	// Even though these outcomes should be named 'back' and 'lay' and will be in a bit
+	// They are called this way at the moment so is easier to filter through them when
+	// checking for contradictory arbs
 	if (smallestLayPrice < largestBackPrice) {
 		return {
 			difference: largestBackPrice - smallestLayPrice,
-			lay: {
+			outcome2: {
 				runner: {
 					id: layRunner.id,
 					name: layRunner.name,
@@ -300,7 +303,7 @@ function buildBackLayArb(market, exchanges, runners, layMarketExchange) {
 				market: layMarketExchange === 1 ? market.market1.id : market.market2.id,
 				ex: layMarketExchange === 1 ? exchanges.ex1 : exchanges.ex2
 			},
-			back: {
+			outcome1: {
 				runner: {
 					id: backRunner.id,
 					name: backRunner.name,
@@ -450,30 +453,37 @@ function findArbInSameMarket(arb1, arb2) {
 }
 
 function removeContradictingArbs(eventsWithArbs) {
-	let totalArbs
 	let arbInSameMarket
 
 	return eventsWithArbs.map(event => {
-		totalArbs = [...event.arbs.BackBack, ...event.arbs.BackLay]
-
-		if (totalArbs.length === 1) {
+		if (event.arbs.length === 1) {
 			return event
 		}
 
-		totalArbs.map(arb1 => {
-			arbInSameMarket = totalArbs.find(arb2 => {
-				return findArbInSameMarket(arb1, arb2) && arb1 !== arb2
-			})
+		const arbsToReturn = event.arbs.map(arb1 => {
+			if (arb1.arbs.length) {
+				if (arb1.arbs.length > 1) {
+					// get best arb in that matched market
+					// this would be the case if there were 2 potential back-back's in the same market
+				}
+
+				for (const arb of arb1.arbs) {
+					arbInSameMarket = event.arbs.find(arb2 => {
+						return findArbInSameMarket(arb, arb2)
+					})
+				}
+			}
 
 			if (arbInSameMarket) {
-				totalArbs.splice(arbInSameMarket, 1)
+				event.arbs.splice(arbInSameMarket, 1)
 
 				return arb1.difference > arbInSameMarket.difference ? arb1 : arbInSameMarket
 			}
 			return arb1
 		})
+
+		return arbsToReturn
 	})
-	console.log(eventsWithArbs)
 }
 
 export function matchMarkets(exchangesEvents) {
@@ -490,26 +500,15 @@ export function matchMarkets(exchangesEvents) {
 	const eventsWithArbs = eventsWithMatchedMarkets
 		.map(event => {
 			if (event.matchedMarkets.length) {
-				const arbs = findArbs(event)
-				const backBack = arbs.filter(arb => arb.type === "BackBack")
-				const backLay = arbs.filter(arb => arb.type === "BackLay")
-
-				if (arbs && arbs.length) {
-					return {
-						...event,
-						arbs: {
-							BackBack: (backBack.length && backBack.arbs) || [],
-							BackLay: (backLay.length && backLay.arbs) || []
-						}
-					}
+				return {
+					...event,
+					arbs: findArbs(event)
 				}
 			}
 			return event
 		})
 		.filter(event => {
-			return (
-				event.arbs && ((event.arbs.BackBack && Object.keys(event.arbs.BackBack).length) || (event.arbs.BackLay && event.arbs.BackLay.length))
-			)
+			return event.arbs && event.arbs.length
 		})
 
 	removeContradictingArbs(eventsWithArbs)
