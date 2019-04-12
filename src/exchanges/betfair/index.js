@@ -236,6 +236,7 @@ async function getMarketBooks(marketIds) {
 			// await timeout(500)
 			params.marketIds = ids
 
+			console.log("Market IDs: ", params.marketIds)
 			response = await bettingApi.listMarketBook(params)
 
 			checkForException(response, BettingOperations.LIST_MARKET_BOOK, type)

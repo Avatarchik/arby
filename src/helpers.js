@@ -291,10 +291,10 @@ export function betfair_buildCompleteMarkets(catalogues, books) {
 	})
 }
 
-function getFormattedMarket(market, runners, mainMarketName) {
+function getFormattedHandicapMarket(market, runners, mainMarketName) {
 	// The reason 'eventType' & 'description' are how they are is because I need to structure of the market to be the same as
 	// markets that have not been altered as I want to access these properties the same way
-	function getMarketName() {
+	function getHandicapMarketName() {
 		const r0Handicap = parseFloat(runners[0].handicap)
 		const r1Handicap = parseFloat(runners[1].handicap)
 		const handicapMod = parseFloat(runners[0].handicap) % 1
@@ -313,6 +313,22 @@ function getFormattedMarket(market, runners, mainMarketName) {
 		// Quarter line
 		// For my benefit, want to format this name so that it is understandable that the stake will be split
 		if (handicapMod === 0.25 || handicapMod === -0.25 || handicapMod === 0.75 || handicapMod === -0.75) {
+			if (market.description.marketType.indexOf("OVER_UNDER") > -1) {
+				if (market.marketName.toUpperCase().indexOf("CORNERS") > -1) {
+					return `Over/Under (${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)}) - Corners`
+				}
+				if (market.marketName.toUpperCase().indexOf("CARDS") > -1) {
+					return `Over/Under (${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)}) - Cards`
+				}
+				if (market.marketName.toUpperCase().indexOf("GOALS") > -1) {
+					return `Over/Under (${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)}) - Goals`
+				}
+				console.log("don't know what this is...")
+			}
+			if (market.description.marketType === "ALT_TOTAL_GOALS") {
+				return `Over/Under (${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)}) - Goals`
+			}
+
 			r0HandicapName = posR0
 				? `(+${r0Lower.toFixed(1)}/${r0Upper.toFixed(1)})`
 				: `(-${!r0Handicap || !r0Upper ? r0Upper.toFixed(1) : r0Upper.toFixed(1).substr(1)}/${r0Lower.toFixed(1).substr(1)})`
@@ -320,11 +336,19 @@ function getFormattedMarket(market, runners, mainMarketName) {
 				? `(+${r1Lower.toFixed(1)}/${r1Upper.toFixed(1)})`
 				: `(-${!r1Handicap || !r1Upper ? r1Upper.toFixed(1) : r1Upper.toFixed(1).substr(1)}/${r1Lower.toFixed(1).substr(1)})`
 
+			if (r0name === "Under" && r1name === "Over") {
+				console.log("debug")
+			}
+
 			return `${r0name} ${r0HandicapName}/${r1name} ${r1HandicapName}`
 		}
 		if (market.marketName !== mainMarketName) {
 			// For any sport, the mainMarketName is NOT the handicap market that Betfair gives us
 			// Therefore, this condition is truthy for handicap markets
+			if (r0name === "Under" && r1name === "Over") {
+				console.log("debug")
+			}
+
 			return `${r0name} ${posR0 ? "+" : ""}${r0Handicap.toFixed(1)}/${r1name} ${posR1 ? "+" : ""}${r1Handicap.toFixed(1)}`
 		}
 		return `${r0name}/${r1name} ${r0Handicap.toFixed(1)}`
@@ -332,7 +356,7 @@ function getFormattedMarket(market, runners, mainMarketName) {
 
 	return {
 		marketId: market.marketId,
-		marketName: getMarketName(),
+		marketName: getHandicapMarketName(),
 		eventType: {
 			name: market.eventType.name
 		},
@@ -340,35 +364,27 @@ function getFormattedMarket(market, runners, mainMarketName) {
 			bettingType: market.description.bettingType,
 			marketType: market.description.marketType
 		},
-		runners: runners.map(runner => {
-			return {
-				selectionId: runner.selectionId,
-				runnerName: runner.runnerName,
-				handicap: runner.handicap > 0 ? `+${runner.handicap}` : runner.handicap
-			}
-		})
+		runners: runners.map(runner => runner)
 	}
 }
 
 function formatBetfairAsianHandicapMarkets_soccer(market, aRunner) {
 	// There are only 2 markets in football that are of market type Asian Handicap Double Line
-	// - Goal Lines
-	// - Asian Handicap
+	// - Goal Lines		- ALT_TOTAL_GOALS
+	// - Asian Handicap	- ASIAN_HANDICAP
 	let bRunner
 
-	if (market.marketName === "Goal Lines") {
-		bRunner = market.runners.find(runner => {
-			return runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId
-		})
-	} else if (market.marketName === "Asian Handicap") {
-		bRunner = market.runners.find(runner => runner.handicap === -aRunner.handicap)
-	}
+	bRunner = market.runners.find(runner => {
+		return market.description.marketType === "ALT_TOTAL_GOALS"
+			? runner.handicap === aRunner.handicap && runner.selectionId !== aRunner.selectionId
+			: runner.handicap === -aRunner.handicap && runner.selectionId !== aRunner.selectionId
+	})
 
 	if (bRunner) {
 		// Removed from the array so there are no duplicate entries of markets
 		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Goal Lines")
+		return getFormattedHandicapMarket(market, [aRunner, bRunner], "Goal Lines")
 	} else {
 		console.log("elsing")
 		// TODO: Should never get here but do need to have exception handling here
@@ -393,7 +409,7 @@ function formatBetfairAsianHandicapMarkets_basketball(market, aRunner) {
 		// Removed from the array so there are no duplicate entries of markets
 		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Total Points")
+		return getFormattedHandicapMarket(market, [aRunner, bRunner], "Total Points")
 	} else {
 		// TODO: Should never get here but do need to have exception handling here
 	}
@@ -417,7 +433,7 @@ function formatBetfairAsianHandicapMarkets_tennis(market, aRunner) {
 		// Removed from the array so there are no duplicate entries of markets
 		market.runners.splice(market.runners.indexOf(bRunner), 1)
 
-		return getFormattedMarket(market, [aRunner, bRunner], "Total Games")
+		return getFormattedHandicapMarket(market, [aRunner, bRunner], "Total Games")
 	} else {
 		console.log("why you here?!")
 		// TODO: Should never get here but do need to have exception handling here
@@ -485,9 +501,14 @@ function formatMarkets(markets, exchange) {
 					switch (market["market-type"]) {
 						case "total":
 							if (isUnderOverMarket(market)) {
+								// The line below is bloody dreadful...
+								// If was a quarter line, the RegExp removed the leading '(' so put it back in...
 								return {
 									...market,
-									name: `Over/Under ${market.runners[0].name.replace(/^\D+/g, "")}`
+									name: `Over/Under ${isAsianQuarterLine(market.runners[0].name) ? "(" : ""}${market.runners[0].name.replace(
+										/^\D+/g,
+										""
+									)}`
 								}
 							} else {
 								console.log("debug")
@@ -510,7 +531,16 @@ function formatMarkets(markets, exchange) {
 // - -2.0
 // - +3
 function isAsianFullLine(name) {
-	return new RegExp(/(\(?[+-]\d\.?[0-0]{1}?\)?)/).test(name)
+	return new RegExp(/(\(?[+-]?\d\.?[0-0]{1}?\)?)/).test(name)
+}
+
+function getAsianFullLineHandicap(name) {
+	const match = name.match(/(\(?[+-]?\d\.?[0-0]{1}?\)?)/)
+
+	if (match && match.length) {
+		return parseFloat(match[0])
+	}
+	return "Something is wrong..."
 }
 
 // (.5/.75)
@@ -518,6 +548,22 @@ function isAsianFullLine(name) {
 // (+.75/1.0)
 export function isAsianQuarterLine(name) {
 	return new RegExp(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/).test(name)
+}
+
+function getAsianQuarterLineHandicap(name) {
+	const match = name.match(/\([+-]?\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/)
+
+	let handicaps
+	let parsedHandicaps
+
+	if (match && match.length) {
+		handicaps = match[0].substring(1, match[0].indexOf(")")).split("/")
+		parsedHandicaps = handicaps.map(handicap => parseFloat(handicap))
+		parsedHandicaps[1] = parsedHandicaps[0] < 0 ? -parsedHandicaps[1] : parsedHandicaps[1]
+
+		return (parsedHandicaps[0] + parsedHandicaps[1]) / 2
+	}
+	return "Something went wrong..."
 }
 
 // (+1.5)
@@ -535,6 +581,15 @@ export function isAsianHalfLine(name, isRunner) {
 	} else {
 		return match ? match.length === 2 : false
 	}
+}
+
+function getAsianHalfLineHandicap(name) {
+	const match = name.match(/(\(?[+-]?\d?\.[5-5]\)?)/g)
+
+	if (match && match.length) {
+		return parseFloat(match[0])
+	}
+	return "Something is wrong..."
 }
 
 function isUnderOverMarket(market) {
@@ -559,12 +614,16 @@ function getMarketType(market, exchange) {
 			if (market.runners.length === 2) {
 				if (isAsianQuarterLine(runnerToTest)) {
 					return "QUARTER_LINE_ASIAN_HANDICAP"
-				} else if (isAsianHalfLine(runnerToTest, true)) {
-					return "HALF_LINE_ASIAN_HANDICAP"
-				} else if (isAsianFullLine(runnerToTest)) {
+				}
+
+				if (isAsianFullLine(runnerToTest)) {
 					return "FULL_LINE_ASIAN_HANDICAP"
-				} else if (isUnderOverMarket(market)) {
-					return "TOTAL_SCORE"
+				}
+
+				if (isAsianHalfLine(runnerToTest, true)) {
+					// Under/Over markets don't have half lines, they sub that for TOTAL_SCORE in my case
+					// I guess this could change...
+					return isUnderOverMarket(market) ? "TOTAL_SCORE" : "HALF_LINE_ASIAN_HANDICAP"
 				}
 			}
 			actual = MarketTypes.find(type => market["market-type"].toUpperCase() === type.actualType)
@@ -655,6 +714,58 @@ function getMarketType(market, exchange) {
 // 	return competitors;
 // }
 
+function getRunnerHandicap(market, name) {
+	if (market.runners.length === 2) {
+		if (isAsianQuarterLine(name)) {
+			return getAsianQuarterLineHandicap(name)
+		}
+		if (isAsianFullLine(name)) {
+			return getAsianFullLineHandicap(name)
+		}
+
+		if (isAsianHalfLine(name, true)) {
+			return isUnderOverMarket(market) ? 0 : getAsianHalfLineHandicap(name)
+		}
+	}
+	return 0
+}
+
+function getMarketName(market, exchange) {
+	let nameToUse
+	let typeToUse
+
+	switch (exchange) {
+		case "matchbook":
+			typeToUse = market.type
+			nameToUse = market.name
+
+			if (typeToUse.toUpperCase() === "BINARY" && isUnderOverMarket(market)) {
+				// Matchbook don't seem to give any other over/under markets other than for goals...
+				return `${nameToUse} - Goals`
+			}
+			return nameToUse
+		case "betfair":
+			typeToUse = market.description.marketType
+			nameToUse = market.marketName
+
+			if (typeToUse.indexOf("OVER_UNDER") > -1) {
+				if (nameToUse.toUpperCase().indexOf("CORNERS") > -1) {
+					return `${nameToUse.substring(nameToUse.indexOf("Corners ") + 8, nameToUse.length)} - Corners`
+				}
+				if (nameToUse.toUpperCase().indexOf("CARDS") > -1) {
+					return `${nameToUse.substring(nameToUse.indexOf("Cards ") + 6, nameToUse.length)} - Cards`
+				}
+				if (nameToUse.toUpperCase().indexOf("GOALS") > -1) {
+					return `${nameToUse.substring(0, nameToUse.indexOf(" Goals"))} - Goals`
+				}
+				console.log("don't know what this is...")
+			}
+			return nameToUse
+		default:
+			return market.name
+	}
+}
+
 export function matchbook_buildFullEvents(events) {
 	return events
 		.map(event => {
@@ -678,12 +789,13 @@ export function matchbook_buildFullEvents(events) {
 				markets: formatMarkets(event.markets, "matchbook").map(market => {
 					return {
 						id: market.id || "-",
-						name: market.name || "-",
+						name: getMarketName(market, "matchbook"),
 						type: getMarketType(market, "matchbook"),
 						runners: market.runners.map(runner => {
 							return {
 								id: runner.id || "-",
 								name: runner.name || "-",
+								handicap: getRunnerHandicap(market, runner.name),
 								prices: {
 									back: runner.prices.filter(price => price.side === "back").map(price => price.odds),
 									lay: runner.prices.filter(price => price.side === "lay").map(price => price.odds)
@@ -712,9 +824,6 @@ export function betfair_buildFullEvents(marketCatalogues, marketBooks) {
 				// competitors: getCompetitors(markets[0].eventType.name, markets, "betfair"),
 				country: markets[0].event.countryCode || "-",
 				markets: formatMarkets(markets, "betfair").map(market => {
-					if (market.description.bettingType === "ASIAN_HANDICAP_DOUBLE_LINE") {
-						console.log("debug")
-					}
 					// console.log(market.marketId)
 					marketBook = marketBooks.find(book => book.marketId === market.marketId)
 
@@ -727,7 +836,7 @@ export function betfair_buildFullEvents(marketCatalogues, marketBooks) {
 
 					return {
 						id: market.marketId || "-",
-						name: market.marketName || "-",
+						name: getMarketName(market, "betfair"),
 						type: getMarketType(market, "betfair"),
 						runners: market.runners.map(runner => {
 							if (!marketBook) {

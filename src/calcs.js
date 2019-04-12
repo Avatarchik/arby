@@ -38,53 +38,60 @@ function eventTypeMatch(eventToCheck, eventToCompare) {
 }
 
 function checkHandicapsAreSame(market1, market2) {
-	let market1Handicap
-	let market2Handicap
-
-	if (isAsianQuarterLine(market1.name) && isAsianQuarterLine(market2.name)) {
-		market1Handicap = market1.name.match(/\(\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/g)
-		market2Handicap = market2.name.match(/\(\d?\.\d{1,2}\/[+-]?\d?\.\d{1,2}\)/g)
-
-		return market1Handicap === market2Handicap
-	} else if (isAsianHalfLine(market1.name, false) && isAsianHalfLine(market2.name, false)) {
-		market1Handicap = market1.name.match(/(\(?\d?\.\d{1,2}\)?)/g)
-		market2Handicap = market2.name.match(/(\(?\d?\.\d{1,2}\)?)/g)
-
-		return Number(market1Handicap[0]) === Number(market2Handicap[0])
+	// I did it this way to guarentee iteration order although you may find better ways down the line I assume...
+	for (let i = 0; i < market1.runners.length; i++) {
+		if (market1.runners[i].handicap !== market2.runners[i].handicap) {
+			return false
+		}
 	}
+	return true
+}
+
+function findSameMarket(potentialMarkets, market, tried, threshold) {
+	const ex2MarketNames = potentialMarkets.map(ex2Market => ex2Market.name.toUpperCase())
+	const remainingMarkets = ex2MarketNames.filter(marketName => !tried.includes(marketName.toUpperCase()))
+	const bestMatchedMarket = findBestMatch(market.name.toUpperCase(), remainingMarkets)
+
+	let matchingMarket
+	let sameHandicap
+
+	if (bestMatchedMarket.bestMatch.rating <= threshold) {
+		return findSameMarket(potentialMarkets, market, [...tried, bestMatchedMarket.bestMatch.target], threshold)
+	}
+	matchingMarket = potentialMarkets.find(market => market.name.toUpperCase() === bestMatchedMarket.bestMatch.target)
+
+	if (market.type.indexOf("ASIAN_HANDICAP") > -1) {
+		sameHandicap = checkHandicapsAreSame(market, matchingMarket)
+
+		if (!sameHandicap) {
+			return findSameMarket(potentialMarkets, market, [...tried, matchingMarket.name.toUpperCase()], threshold)
+		}
+	}
+	console.log(`"${market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`)
+	return matchingMarket
 }
 
 function findSameMarkets(matchedEvent, similarityThreshold) {
-	let bestMatchedMarket
 	let marketsOfSameType
-	let matchingMarket
 	let matchedMarkets = []
-	let sameHandicap
+
+	if (matchedEvent.ex1 === "betfair" && matchedEvent.ex2 === "betfair") {
+		console.log("why oh why")
+	}
 
 	matchedEvent.event1.markets.forEach(ex1Market => {
-		marketsOfSameType = matchedEvent.event2.markets.filter(ex2Market => ex2Market.type === ex1Market.type)
+		marketsOfSameType = matchedEvent.event2.markets.filter(ex2Market => {
+			return ex2Market.type === ex1Market.type && ex1Market.runners.length === ex2Market.runners.length
+		})
 
+		if (ex1Market.type.indexOf("ASIAN_HANDICAP") > -1) {
+			console.log("debug")
+		}
 		if (marketsOfSameType.length) {
-			bestMatchedMarket = findBestMatch(ex1Market.name.toUpperCase(), marketsOfSameType.map(ex2Market => ex2Market.name.toUpperCase()))
-
-			if (bestMatchedMarket.bestMatch.rating >= similarityThreshold) {
-				console.log(`"${ex1Market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`)
-
-				matchingMarket = marketsOfSameType.find(market => market.name.toUpperCase() === bestMatchedMarket.bestMatch.target)
-
-				if (ex1Market.type === "HANDICAP" || ex1Market.type === "ASIAN_HANDICAP") {
-					sameHandicap = checkHandicapsAreSame(ex1Market, matchingMarket)
-				}
-
-				// Would be undefined if not a handicap market so the condition above has not been truthy
-				if (sameHandicap === undefined || sameHandicap) {
-					matchedMarkets.push({
-						market1: ex1Market,
-						market2: matchingMarket
-					})
-				}
-				sameHandicap = undefined
-			}
+			matchedMarkets.push({
+				market1: ex1Market,
+				market2: findSameMarket(marketsOfSameType, ex1Market, [], similarityThreshold)
+			})
 		}
 	})
 	return matchedMarkets
