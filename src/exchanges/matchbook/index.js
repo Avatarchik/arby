@@ -51,7 +51,7 @@ async function getEvents(sportIds) {
 		),
 		before: String(
 			moment()
-				.add(1, "day")
+				.add(2, "day")
 				.unix()
 		),
 		states: "open",

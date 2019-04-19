@@ -1,4 +1,4 @@
-import { filter, uniq } from "lodash"
+import { filter, uniq, groupBy, mapValues, pickBy } from "lodash"
 import { findBestMatch } from "string-similarity"
 import ArbTable from "../lib/arb-table"
 import { isAsianQuarterLine, isAsianHalfLine } from "./helpers"
@@ -47,51 +47,73 @@ function checkHandicapsAreSame(market1, market2) {
 	return true
 }
 
-function findSameMarket(potentialMarkets, market, tried, threshold) {
-	const ex2MarketNames = potentialMarkets.map(ex2Market => ex2Market.name.toUpperCase())
-	const remainingMarkets = ex2MarketNames.filter(marketName => !tried.includes(marketName.toUpperCase()))
-	const bestMatchedMarket = findBestMatch(market.name.toUpperCase(), remainingMarkets)
+function checkNumberAreSame(market1Name, market2Name) {
+	return parseInt(market1Name.replace(/[^0-9\.]+/g, "")) === parseInt(market2Name.replace(/[^0-9\.]+/g, ""))
+}
 
+function findSameMarket(potentialMarkets, market, threshold) {
+	let ex2MarketNames
+	let bestMatchedMarket
 	let matchingMarket
 	let sameHandicap
+	let sameNumber
+
+	if (!potentialMarkets.length) {
+		// No match :(
+		return
+	}
+	ex2MarketNames = potentialMarkets.map(ex2Market => ex2Market.name.toUpperCase())
+	bestMatchedMarket = findBestMatch(market.name.toUpperCase(), ex2MarketNames)
 
 	if (bestMatchedMarket.bestMatch.rating <= threshold) {
-		return findSameMarket(potentialMarkets, market, [...tried, bestMatchedMarket.bestMatch.target], threshold)
+		return findSameMarket(
+			potentialMarkets.filter(market => {
+				return market.name.toUpperCase() !== bestMatchedMarket.bestMatch.target.toUpperCase()
+			}),
+			market,
+			threshold
+		)
 	}
 	matchingMarket = potentialMarkets.find(market => market.name.toUpperCase() === bestMatchedMarket.bestMatch.target)
 
-	if (market.type.indexOf("ASIAN_HANDICAP") > -1) {
+	if (market.type.includes("ASIAN_HANDICAP")) {
 		sameHandicap = checkHandicapsAreSame(market, matchingMarket)
-
-		if (!sameHandicap) {
-			return findSameMarket(potentialMarkets, market, [...tried, matchingMarket.name.toUpperCase()], threshold)
-		}
+	} else if (market.name.toUpperCase().includes("OVER/UNDER")) {
+		sameNumber = checkNumberAreSame(market.name, matchingMarket.name)
 	}
-	console.log(`"${market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`)
+
+	if (sameNumber === false || sameHandicap === false) {
+		return findSameMarket(
+			potentialMarkets.filter(market => {
+				return market.name.toUpperCase() !== matchingMarket.name.toUpperCase()
+			}),
+			market,
+			threshold
+		)
+	}
+	// console.log(`"${market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`)
 	return matchingMarket
 }
 
 function findSameMarkets(matchedEvent, similarityThreshold) {
 	let marketsOfSameType
 	let matchedMarkets = []
-
-	if (matchedEvent.ex1 === "betfair" && matchedEvent.ex2 === "betfair") {
-		console.log("why oh why")
-	}
+	let sameMarket
 
 	matchedEvent.event1.markets.forEach(ex1Market => {
 		marketsOfSameType = matchedEvent.event2.markets.filter(ex2Market => {
 			return ex2Market.type === ex1Market.type && ex1Market.runners.length === ex2Market.runners.length
 		})
 
-		if (ex1Market.type.indexOf("ASIAN_HANDICAP") > -1) {
-			console.log("debug")
-		}
 		if (marketsOfSameType.length) {
-			matchedMarkets.push({
-				market1: ex1Market,
-				market2: findSameMarket(marketsOfSameType, ex1Market, [], similarityThreshold)
-			})
+			sameMarket = findSameMarket(marketsOfSameType, ex1Market, similarityThreshold)
+
+			if (sameMarket) {
+				matchedMarkets.push({
+					market1: ex1Market,
+					market2: sameMarket
+				})
+			}
 		}
 	})
 	return matchedMarkets
@@ -283,7 +305,7 @@ function buildBackBackArb(arb) {
 				price: largestOpposingRunnerBack
 			},
 			market: arb.opposingMarket,
-			ex: arb.opposingRunner
+			ex: arb.opposingEx
 		}
 	}
 }
@@ -418,12 +440,50 @@ function findArbs(event) {
 				}
 			}
 		})
-		.filter(arb => arb.arbs && arb.arbs.length)
+		.filter(market => market.arbs && market.arbs.length)
+		.reduce(
+			(acc, val) => {
+				val.arbs.forEach(arb => acc[val.type].push(arb))
+				return acc
+			},
+			{
+				BackBack: [],
+				BackLay: []
+			}
+		)
 }
 
-function placeArbs(event) {}
+function placeArbs(event) {
+	console.log("placeArbs")
+}
 
-function allocateFundsPerArb(eventsWithArbs) {}
+function allocateFundsPerArb(eventsWithArbs) {
+	console.log("allocatingFunds")
+}
+
+function getArbsInSameMarket(arbs) {
+	let remainingArbs
+	let sameMarkets
+
+	return arbs.reduce((acc, val) => {
+		remainingArbs = arbs.filter(arb => {
+			// These differences are to about 10 decimal places
+			// Extremely unlikely that 2 arbs will ever have the exact same difference
+			return arb.difference !== val.difference
+		})
+
+		if (remainingArbs.length) {
+			sameMarkets = remainingArbs.filter(backLayArb => {
+				return val.outcome1.market === backLayArb.outcome1.market && val.outcome2.market === backLayArb.outcome2.market
+			})
+
+			if (sameMarkets.length) {
+				acc.push(sameMarkets)
+			}
+		}
+		return acc
+	}, [])
+}
 
 /**
  * Okay this seems like a horrible piece of dog poo but is actually very simple...
@@ -433,94 +493,89 @@ function allocateFundsPerArb(eventsWithArbs) {}
  * The massive ternary just checks whether the runners (outcome1/outcome2/lay/back) of the initial arb
  * Are present in that of the other arb
  */
-function findArbInSameMarket(arb1, arb2) {
-	if (arb1.outcome1 && arb1.outcome2) {
-		// Is a BackBack
-		return arb2.outcome1 && arb2.outcome2
-			? (arb1.outcome1.market === arb2.outcome1.market && arb1.outcome1.ex === arb2.outcome1.ex) ||
-					(arb1.outcome1.market === arb2.outcome2.market && arb1.outcome1.ex === arb2.outcome2.ex) ||
-					(arb1.outcome2.market === arb2.outcome1.market && arb1.outcome2.ex === arb2.outcome1.ex) ||
-					(arb1.outcome2.market === arb2.outcome2.market && arb1.outcome2.ex === arb2.outcome2.ex)
-			: (arb1.outcome1.market === arb2.lay.market && arb1.outcome1.ex === arb2.lay.ex) ||
-					(arb1.outcome1.market === arb2.back.market && arb1.outcome1.ex === arb2.back.ex) ||
-					(arb1.outcome2.market === arb2.lay.market && arb1.outcome2.ex === arb2.lay.ex) ||
-					(arb1.outcome2.market === arb2.back.market && arb1.outcome2.ex === arb2.back.ex)
-	} else {
-		// Is a BackLay
-		return arb2.outcome1 && arb2.outcome2
-			? (arb1.lay.market === arb2.outcome1.market && arb1.lay.ex === arb2.outcome1.ex) ||
-					(arb1.lay.market === arb2.outcome2.market && arb1.lay.ex === arb2.outcome2.ex) ||
-					(arb1.back.market === arb2.outcome1.market && arb1.back.ex === arb2.outcome1.ex) ||
-					(arb1.back.market === arb2.outcome2.market && arb1.back.ex === arb2.outcome2.ex)
-			: (arb1.lay.market === arb2.lay.market && arb1.lay.ex === arb2.lay.ex) ||
-					(arb1.lay.market === arb2.back.market && arb1.lay.ex === arb2.back.ex) ||
-					(arb1.back.market === arb2.lay.market && arb1.back.ex === arb2.lay.ex) ||
-					(arb1.back.market === arb2.back.market && arb1.back.ex === arb2.back.ex)
+function findArbsInSameMarket(arbs) {
+	const { BackBack, BackLay } = arbs
+
+	let inSameMarket = []
+	let remainingBackBackArbs
+
+	if (BackBack.length) {
+		inSameMarket = getArbsInSameMarket(BackBack)
 	}
+
+	remainingBackBackArbs = inSameMarket.length
+		? BackBack.filter(arb => {
+				return !inSameMarket.includes(arb)
+		  })
+		: BackBack
+
+	if (BackLay.length) {
+		inSameMarket = getArbsInSameMarket([...BackLay, ...remainingBackBackArbs])
+	}
+	return inSameMarket
 }
 
 function removeContradictingArbs(eventsWithArbs) {
-	let arbInSameMarket
+	let arbsInSameMarket
 
 	return eventsWithArbs.map(event => {
-		if (event.arbs.length === 1) {
-			return event
-		}
+		arbsInSameMarket = findArbsInSameMarket(event.arbs)
+		// arbsToReturn = Object.keys(event.arbs).map(key => {
+		// 	if (event.arbs[key].length) {
+		// 		if (key.arbs.length > 1) {
+		// 			// get best arb in that matched market
+		// 			// this would be the case if there were 2 potential back-back's in the same market
+		// 		}
 
-		const arbsToReturn = event.arbs.map(arb1 => {
-			if (arb1.arbs.length) {
-				if (arb1.arbs.length > 1) {
-					// get best arb in that matched market
-					// this would be the case if there were 2 potential back-back's in the same market
-				}
+		// 		for (const arb of key.arbs) {
+		// 			arbInSameMarket = event.arbs.find(arb2 => {
+		// 				return findArbInSameMarket(arb, arb2)
+		// 			})
+		// 		}
+		// 	}
 
-				for (const arb of arb1.arbs) {
-					arbInSameMarket = event.arbs.find(arb2 => {
-						return findArbInSameMarket(arb, arb2)
-					})
-				}
-			}
+		// 	if (arbInSameMarket) {
+		// 		event.arbs.splice(arbInSameMarket, 1)
 
-			if (arbInSameMarket) {
-				event.arbs.splice(arbInSameMarket, 1)
+		// 		return key.difference > arbInSameMarket.difference ? key : arbInSameMarket
+		// 	}
+		// 	return key
+		// })
 
-				return arb1.difference > arbInSameMarket.difference ? arb1 : arbInSameMarket
-			}
-			return arb1
-		})
-
-		return arbsToReturn
+		return arbsInSameMarket.length
+			? arbsInSameMarket.reduce(arb => {
+					console.log("debug")
+			  }, [])
+			: event
 	})
 }
 
 export function matchMarkets(exchangesEvents) {
 	const sameEvents = findSameEvents(exchangesEvents)
-	const eventsWithMatchedMarkets = sameEvents.map(event => {
-		// This threshold (0.6) is quite high considering am also taking the market type into account
-		// This is because any lower and Asian Single Lines matched with Asian Double Lines
-		// In the future, I could split these into 2 separate market types but for now...no
-		return {
-			...event,
-			matchedMarkets: findSameMarkets(event, 0.6)
-		}
-	})
+	const eventsWithMatchedMarkets = sameEvents
+		.map(event => {
+			// This threshold (0.6) is quite high considering am also taking the market type into account
+			// This is because any lower and Asian Single Lines matched with Asian Double Lines
+			// In the future, I could split these into 2 separate market types but for now...no
+			return {
+				...event,
+				matchedMarkets: findSameMarkets(event, 0.6)
+			}
+		})
+		.filter(event => event.matchedMarkets.length)
 	const eventsWithArbs = eventsWithMatchedMarkets
 		.map(event => {
-			if (event.matchedMarkets.length) {
-				return {
-					...event,
-					arbs: findArbs(event)
-				}
+			return {
+				...event,
+				arbs: findArbs(event)
 			}
-			return event
 		})
-		.filter(event => {
-			return event.arbs && event.arbs.length
-		})
+		.filter(event => event.arbs && (event.arbs.BackBack.length || event.arbs.BackLay.length))
+	const nonConflictingArbs = removeContradictingArbs(eventsWithArbs)
 
-	removeContradictingArbs(eventsWithArbs)
-	// allocateFundsPerArb(eventsWithArbs)
-	// eventsWithArbs.forEach(event => {
-	// 	placeArbs(event);
-	// });
+	allocateFundsPerArb(nonConflictingArbs)
+
+	eventsWithArbs.forEach(event => {
+		placeArbs(event)
+	})
 }

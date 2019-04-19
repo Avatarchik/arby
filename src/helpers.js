@@ -743,7 +743,7 @@ function getMarketName(market, exchange) {
 				// Matchbook don't seem to give any other over/under markets other than for goals...
 				return `${nameToUse} - Goals`
 			}
-			return nameToUse
+			return nameToUse.includes("BTTS") ? "Match Odds and Both Teams To Score" : nameToUse
 		case "betfair":
 			typeToUse = market.description.marketType
 			nameToUse = market.marketName
