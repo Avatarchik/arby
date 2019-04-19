@@ -119,7 +119,7 @@ async function getEvents(...args) {
 					.subtract(gap)
 					.format(),
 				to: moment()
-					.add(2, "day")
+					.add(1, "day")
 					.format()
 			}
 		}

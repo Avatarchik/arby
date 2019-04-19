@@ -2,47 +2,9 @@ import { flattenDeep, uniq, mapValues, groupBy, values, flatten } from "lodash"
 import { getCode, overwrite } from "country-list"
 import MarketTypes from "../lib/enums/marketTypes"
 import { parse } from "querystring"
+import countryListOverrides from "../lib/country-list-overrides"
 
-// Some bookies (Matchbook especially) give country codes that this library does not map correctly
-// So these are overrides for those names
-overwrite([
-	{
-		code: "GB",
-		name: "Scotland"
-	},
-	{
-		code: "GB",
-		name: "Wales"
-	},
-	{
-		code: "GB",
-		name: "England"
-	},
-	{
-		code: "US",
-		name: "United States of America"
-	},
-	{
-		code: "-",
-		name: "World"
-	},
-	{
-		code: "-",
-		name: "Europe"
-	},
-	{
-		code: "-",
-		name: "U.A.E."
-	},
-	{
-		code: "RU",
-		name: "Russia"
-	},
-	{
-		code: "-",
-		name: "Asia"
-	}
-])
+overwrite(countryListOverrides)
 
 function checkIfAbleToLay(funds, layPrice) {
 	return getLiability(1, layPrice) < funds
