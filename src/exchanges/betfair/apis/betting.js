@@ -1,54 +1,47 @@
-import jsonschema from "jsonschema";
-import {
-	merge,
-	forEach,
-	map,
-	reduce
-} from "lodash";
+import jsonschema from "jsonschema"
+import { merge, forEach, map, reduce } from "lodash"
 
-import BetfairConfig from "../config";
+import BetfairConfig from "../config"
 
-import TypeDefinitionSchemas from "../../../../models/exchanges/betfair/betting/typeDefs";
-import EnumSchemas from "../../../../models/exchanges/betfair/betting/enums";
-import OperationSchemas from "../../../../models/exchanges/betfair/betting/operations";
+import TypeDefinitionSchemas from "../../../../models/exchanges/betfair/betting/typeDefs"
+import EnumSchemas from "../../../../models/exchanges/betfair/betting/enums"
+import OperationSchemas from "../../../../models/exchanges/betfair/betting/operations"
 
-import {
-	Operations
-} from "../../../../lib/enums/exchanges/betfair/betting";
+import { Operations } from "../../../../lib/enums/exchanges/betfair/betting"
 
 /**
  * Class representing the Betting API
  */
 export default class BettingAPI {
 	constructor() {
-		const Validator = jsonschema.Validator;
+		const Validator = jsonschema.Validator
 
-		this._config = new BetfairConfig();
-		this._api = this._config.api;
+		this._config = new BetfairConfig()
+		this._api = this._config.api
 		this._validator = new Validator({
 			throwError: true
-		});
+		})
 
-		forEach(TypeDefinitionSchemas, (TypeDef, key) => this._validator.addSchema(TypeDef, TypeDef.id));
-		forEach(EnumSchemas, (Enum, id) => this._validator.addSchema(Enum, Enum.id));
-		forEach(OperationSchemas, (Operation, id) => this._validator.addSchema(Operation, Operation.id));
+		forEach(TypeDefinitionSchemas, (TypeDef, key) => this._validator.addSchema(TypeDef, TypeDef.id))
+		forEach(EnumSchemas, (Enum, id) => this._validator.addSchema(Enum, Enum.id))
+		forEach(OperationSchemas, (Operation, id) => this._validator.addSchema(Operation, Operation.id))
 	}
 
 	/**
 	 * NOTE: This is only useful if you do not already know the event types. At the time of write this, these are stored in 'config.js'
-	 * 
+	 *
 	 * @async
 	 * @public
-	 * @param {object} params - Parameters passed to this operation ('filter' is required) 
+	 * @param {object} params - Parameters passed to this operation ('filter' is required)
 	 * @returns {Array} List of Event Types (i.e. sports) associated with the markets selected by the MarketFilter
 	 */
 	async listEventTypes(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENT_TYPES, params);
+			await this.validateParams(Operations.LIST_EVENT_TYPES, params)
 
-			return this.executeRequest(Operations.LIST_EVENT_TYPES, params);
+			return this.executeRequest(Operations.LIST_EVENT_TYPES, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
@@ -60,27 +53,27 @@ export default class BettingAPI {
 	 */
 	async listCompetitions(params) {
 		try {
-			await this.validateParams(Operations.LIST_COMPETITIONS, params);
+			await this.validateParams(Operations.LIST_COMPETITIONS, params)
 
-			return this.executeRequest(Operations.LIST_COMPETITIONS, params);
+			return this.executeRequest(Operations.LIST_COMPETITIONS, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params - Parameters for operation ('filter' is required) 
+	 * @param {object} params - Parameters for operation ('filter' is required)
 	 * @returns {Array} List of Events (i.e. Reading vs. Man Utd) associated with the markets selected by the MarketFilter
 	 */
 	async listEvents(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENTS, params);
+			await this.validateParams(Operations.LIST_EVENTS, params)
 
-			return this.executeRequest(Operations.LIST_EVENTS, params);
+			return this.executeRequest(Operations.LIST_EVENTS, params)
 		} catch (err) {
-			console.log(err);
+			console.log(err)
 		}
 	}
 
@@ -92,11 +85,11 @@ export default class BettingAPI {
 	 */
 	async listMarketCatalogue(params) {
 		try {
-			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params);
+			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_CATALOGUE, params);
+			return this.executeRequest(Operations.LIST_MARKET_CATALOGUE, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
@@ -108,34 +101,34 @@ export default class BettingAPI {
 	 */
 	async listMarketBook(params) {
 		try {
-			await this.validateParams(Operations.LIST_MARKET_BOOK, params);
+			await this.validateParams(Operations.LIST_MARKET_BOOK, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_BOOK, params);
+			return this.executeRequest(Operations.LIST_MARKET_BOOK, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params 
+	 * @param {object} params
 	 * @returns {Array} List of dynamic data about market AND specified runner. As listMarketBook but with ONLY specific runner
 	 */
 	async listRunnerBook(params) {
 		try {
-			await this.validateParams(Operations.LIST_RUNNER_BOOK, params);
+			await this.validateParams(Operations.LIST_RUNNER_BOOK, params)
 
-			return this.executeRequest(Operations.LIST_RUNNER_BOOK, params);
+			return this.executeRequest(Operations.LIST_RUNNER_BOOK, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params 
+	 * @param {object} params
 	 * @returns {Array} List of your current orders. Optionally you can filter & sort your current orders using the various parameters...more to go here but want to figure out multi line tags first
 	 */
 	async listCurrentOrders(params) {
@@ -150,7 +143,7 @@ export default class BettingAPI {
 			sortDir,
 			fromRecord,
 			recordCount
-		} = params;
+		} = params
 
 		return this.api.post(process.env.BETFAIR_API_JSONRPC_ENDPOINT, {
 			data: BettingAPI.buildRequestBody(Config.LIST_CURRENT_ORDERS, {
@@ -191,32 +184,32 @@ export default class BettingAPI {
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params 
+	 * @param {object} params
 	 * @returns {object} PlaceExecutionReport
 	 */
 	async placeOrders(params) {
 		try {
-			await this.validateParams(Operations.PLACE_ORDERS, params);
+			await this.validateParams(Operations.PLACE_ORDERS, params)
 
-			return this.executeRequest(Operations.PLACE_ORDERS, params);
+			return this.executeRequest(Operations.PLACE_ORDERS, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
 	/**
 	 * @async
 	 * @public
-	 * @param {object} params 
+	 * @param {object} params
 	 * @returns {object} CancelExecutionOrder
 	 */
 	async cancelOrders(params) {
 		try {
-			await this.validateParams(Operations.CANCEL_ORDERS, params);
+			await this.validateParams(Operations.CANCEL_ORDERS, params)
 
-			return this.executeRequest(Operations.CANCEL_ORDERS, params);
+			return this.executeRequest(Operations.CANCEL_ORDERS, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
@@ -229,11 +222,11 @@ export default class BettingAPI {
 	async listMarketTypes(params) {
 		// I will want to call this endpoint every so often as market types might change
 		try {
-			await this.validateParams(Operations.LIST_MARKET_TYPES, params);
+			await this.validateParams(Operations.LIST_MARKET_TYPES, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_TYPES, params);
+			return this.executeRequest(Operations.LIST_MARKET_TYPES, params)
 		} catch (err) {
-			console.error(err);
+			console.error(err)
 		}
 	}
 
@@ -242,28 +235,32 @@ export default class BettingAPI {
 			data: {
 				jsonrpc: "2.0",
 				method: `SportsAPING/v1.0/${operation}`,
-				params: (filters || {}),
+				params: filters || {},
 				id: 1
 			}
-		});
+		})
 	}
 
 	formatValidationErrors(errors) {
-		return reduce(errors, (err, acc) => {
-			return (`${acc}, ${err.stack}`)
-		}, "");
+		return reduce(
+			errors,
+			(err, acc) => {
+				return `${acc}, ${err.stack}`
+			},
+			""
+		)
 	}
 
 	/**
 	 * @private
-	 * @param {String} reqName 
-	 * @param {object} params 
+	 * @param {String} reqName
+	 * @param {object} params
 	 */
 	validateParams(reqName, params) {
-		let validation = this._validator.validate(params, OperationSchemas[reqName]);
+		let validation = this._validator.validate(params, OperationSchemas[reqName])
 
 		if (validation.errors && validation.errors.length) {
-			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`;
+			throw `${reqName} errors; ${this.formatValidationErrors(validation.errors)}`
 		}
 	}
 }

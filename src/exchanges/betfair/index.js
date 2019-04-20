@@ -1,8 +1,6 @@
 import moment from "moment"
-import scheduler from "node-schedule"
-import { forOwn, chunk, flattenDeep, uniqBy } from "lodash"
-import fs from "fs"
-import path from "path"
+import { chunk, flattenDeep } from "lodash"
+import asyncRedis from "async-redis"
 
 import BettingApi from "./apis/betting"
 import AccountsApi from "./apis/account"
@@ -23,14 +21,17 @@ import {
 } from "../../../lib/enums/exchanges/betfair/betting"
 import { Operations as AccountOperations } from "../../../lib/enums/exchanges/betfair/account"
 import * as helpers from "../../helpers"
-import { isDeepStrictEqual } from "util"
 
 const BETTING = "Betting"
 const ACCOUNT = "Account"
+const client = asyncRedis.createClient()
 
 let bettingApi
 let accountApi
-let betfairConfig
+
+client.on("error", err => {
+	console.log("Error: ", err)
+})
 
 async function getAccountFunds() {
 	const params = {
@@ -46,7 +47,7 @@ async function getAccountFunds() {
 
 		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type)
 
-		betfairConfig.balance = response.data.result.availableToBetBalance
+		await client.set("betfairBalance", response.data.result.availableToBetBalance.toString())
 	} catch (err) {
 		throw getException({
 			err,
@@ -153,14 +154,7 @@ async function getMarketCatalogues(eventIds) {
 	const idChunks = chunk(eventIds, 2)
 
 	let params = {
-		filter: {
-			marketBettingTypes: [
-				...(betfairConfig.betOnOdds ? [MarketBettingType.ODDS.val] : []),
-				...(betfairConfig.betOnSpread ? [MarketBettingType.LINE.val] : []),
-				...(betfairConfig.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-				...(betfairConfig.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
-			]
-		},
+		filter: {},
 		marketProjection: [
 			MarketProjection.EVENT_TYPE.val,
 			MarketProjection.EVENT.val,
@@ -175,6 +169,13 @@ async function getMarketCatalogues(eventIds) {
 	let marketCataloguePromises
 
 	try {
+		params.filter.marketBettingTypes = [
+			...((await client.get("betOnOdds")) === "true" ? [MarketBettingType.ODDS.val] : []),
+			...((await client.get("betOnSpread")) === "true" ? [MarketBettingType.LINE.val] : []),
+			...((await client.get("betOnAsianHandicapSingleLine")) === "true" ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+			...((await client.get("betOnAsianHandicapDoubleLine")) === "true" ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+		]
+
 		console.time("market-catalogues")
 
 		// I attempted the commented out method below in an attempt to make all calls asynchronous and, hopefully, make the process faster
@@ -284,28 +285,28 @@ async function placeBets(markets, funds) {
 	}
 }
 
-function setupScheduleJobs() {
-	let dateToSchedule
-	let eventLength
+// function setupScheduleJobs() {
+// 	let dateToSchedule
+// 	let eventLength
 
-	forOwn(betfairConfig.schedules, (schedules, key) => {
-		schedules.forEach(schedule => {
-			eventLength = EventTypes[key.toUpperCase()].eventLength
-			dateToSchedule = moment(schedule)
-				.add(eventLength, "m")
-				.toDate()
+// 	forOwn(betfairConfig.schedules, (schedules, key) => {
+// 		schedules.forEach(schedule => {
+// 			eventLength = EventTypes[key.toUpperCase()].eventLength
+// 			dateToSchedule = moment(schedule)
+// 				.add(eventLength, "m")
+// 				.toDate()
 
-			scheduler.scheduleJob(dateToSchedule, resolveScheduledJob)
-		})
-	})
-}
+// 			scheduler.scheduleJob(dateToSchedule, resolveScheduledJob)
+// 		})
+// 	})
+// }
 
-function getEventTypeIds(eventTypes) {
-	const sportsToUse = betfairConfig.sportsToUse
+async function getEventTypeIds(eventTypes) {
+	const sportsToUse = JSON.parse(await client.get("sportsToUse"))
 
 	return eventTypes
 		.filter(event => {
-			return sportsToUse.indexOf(event.eventType.name) > -1
+			return sportsToUse.includes(event.eventType.name)
 		})
 		.map(event => event.eventType.id)
 }
@@ -329,6 +330,8 @@ function removeBogusTennisEvents(events) {
 }
 
 export async function init() {
+	const betfairInstance = new BetfairConfig()
+
 	let eventTypes
 	let eventTypeIds
 	let eventIds
@@ -341,10 +344,8 @@ export async function init() {
 	let marketCataloguesWithBooks
 	let marketTypes
 
-	betfairConfig = new BetfairConfig()
-
-	betfairConfig.initAxios()
-	await betfairConfig.login()
+	betfairInstance.initAxios()
+	await betfairInstance.login()
 
 	accountApi = new AccountsApi()
 	bettingApi = new BettingApi()
@@ -353,7 +354,7 @@ export async function init() {
 		console.time("betfair")
 		await getAccountFunds()
 		eventTypes = await getEventTypes()
-		eventTypeIds = getEventTypeIds(eventTypes)
+		eventTypeIds = await getEventTypeIds(eventTypes)
 		marketTypes = await getMarketTypes(eventTypeIds)
 
 		events = await getEvents(eventTypeIds)
@@ -374,6 +375,7 @@ export async function init() {
 			return marketBookIds.includes(catalogue.marketId)
 		})
 		const cityCatalogues = marketCatalogues.filter(catalogue => catalogue.event.name.indexOf("Man City") > -1)
+
 		return helpers.betfair_buildFullEvents(marketCataloguesWithBooks, marketBooks)
 	} catch (err) {
 		handleApiException(err)

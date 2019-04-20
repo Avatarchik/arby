@@ -1,5 +1,6 @@
 import moment from "moment"
 import fs from "fs"
+import asyncRedis from "async-redis"
 
 import BettingApi from "./apis/betting"
 import AccountsApi from "./apis/account"
@@ -7,9 +8,15 @@ import MatchbookConfig from "./config"
 
 import * as helpers from "../../helpers"
 
+const client = asyncRedis.createClient()
+
 let matchbookConfig
 let accountsApi
 let bettingApi
+
+client.on("error", err => {
+	console.error("Error: ", err)
+})
 
 async function getAccountFunds() {
 	let response
@@ -17,7 +24,7 @@ async function getAccountFunds() {
 	try {
 		response = await accountsApi.getBalance()
 
-		return response.data
+		return response.data.balance.toString()
 	} catch (err) {
 		console.error(err)
 	}
@@ -42,7 +49,8 @@ async function getSports() {
 
 async function getEvents(sportIds) {
 	const gap = moment.duration(2, "hours")
-	const params = {
+
+	let params = {
 		"per-page": 100,
 		after: String(
 			moment()
@@ -60,13 +68,12 @@ async function getEvents(sportIds) {
 			.replace("]", ""),
 		"odds-type": "DECIMAL",
 		"include-prices": false,
-		"exchange-type": "back-lay",
-		currency: matchbookConfig.defaultCurrency
+		"exchange-type": "back-lay"
 	}
-
 	let response
 
 	try {
+		params.currency = await client.get("defaultCurrency")
 		response = await bettingApi.getEvents(params)
 
 		return response.data.events
@@ -75,34 +82,33 @@ async function getEvents(sportIds) {
 	}
 }
 
-function getSportIds(sports) {
-	const sportsToUse = matchbookConfig.sportsToUse
+async function getSportIds(sports) {
+	const sportsToUse = JSON.parse(await client.get("sportsToUse"))
 
 	return sports
 		.filter(sport => {
-			return sportsToUse.indexOf(sport.name) > -1
+			return sportsToUse.includes(sport.name)
 		})
 		.map(sport => sport.id)
 }
 
 export async function init() {
+	const matchbookInstance = new MatchbookConfig()
 	let sports
 	let sportsIds
 	let events
 
-	matchbookConfig = new MatchbookConfig()
-
-	matchbookConfig.initAxios()
-	await matchbookConfig.login()
+	matchbookInstance.initAxios()
+	await matchbookInstance.login()
 
 	accountsApi = new AccountsApi()
 	bettingApi = new BettingApi()
 
 	try {
 		console.time("matchbook")
-		matchbookConfig.balance = await getAccountFunds()
+		await client.set("matchbookBalance", await getAccountFunds())
 		sports = await getSports()
-		sportsIds = getSportIds(sports)
+		sportsIds = await getSportIds(sports)
 
 		events = await getEvents(sportsIds)
 

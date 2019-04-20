@@ -1,9 +1,13 @@
-import { filter, uniq, groupBy, mapValues, pickBy } from "lodash"
+import { filter, uniq, flattenDeep, uniqBy } from "lodash"
 import { findBestMatch } from "string-similarity"
 import ArbTable from "../lib/arb-table"
-import { isAsianQuarterLine, isAsianHalfLine } from "./helpers"
-import BetfairConfig from "./exchanges/betfair/config"
-import MatchbookConfig from "./exchanges/matchbook/config"
+import asyncRedis from "async-redis"
+
+const client = asyncRedis.createClient()
+
+client.on("error", err => {
+	console.error("Error: ", err)
+})
 
 function getExchangesToCompare(exchanges, exchangeBeingChecked, exchangesChecked) {
 	return filter(exchanges, exchange => {
@@ -214,33 +218,31 @@ function getOpposingRunner(runnerName, otherRunners) {
 	})
 }
 
-function getBestArb(potentialArbs) {
-	const betfairConfig = new BetfairConfig()
-	const matchbookConfig = new MatchbookConfig()
-	const numberOfPotentialArbs = potentialArbs.length
+// function getBestArb(potentialArbs) {
+// 	const numberOfPotentialArbs = potentialArbs.length
 
-	let matchbookBalance
-	let betfairBalance
+// 	let matchbookBalance
+// 	let betfairBalance
 
-	potentialArbs.forEach(arb => {
-		switch (arb.backExchange) {
-			case "matchbook":
-				matchbookBalance = matchbookConfig.balance
-				break
-			case "betfair":
-				betfairBalance = betfairConfig.balance
-				break
-			case "betdaq":
-				break
-			default:
-				return "Oh no...exchange not supported"
-		}
-	})
-	/**
-	 * 1. Get the balances of both markets in question
-	 * 2. Calculate the best odds based on this information...
-	 */
-}
+// 	potentialArbs.forEach(arb => {
+// 		switch (arb.backExchange) {
+// 			case "matchbook":
+// 				matchbookBalance = matchbookConfig.balance
+// 				break
+// 			case "betfair":
+// 				betfairBalance = betfairConfig.balance
+// 				break
+// 			case "betdaq":
+// 				break
+// 			default:
+// 				return "Oh no...exchange not supported"
+// 		}
+// 	})
+// 	/**
+// 	 * 1. Get the balances of both markets in question
+// 	 * 2. Calculate the best odds based on this information...
+// 	 */
+// }
 
 function findArb(runner, opposingRunner) {
 	let potentialArb
@@ -468,21 +470,19 @@ function findArbs_BackBack(market, runners, foundArbs, exchanges) {
 }
 
 function findArbs(market, ex1, ex2) {
-	if (market.market1.runners.length) {
-		if (market.market1.runners.length === 2) {
-			return {
-				BackBack: findArbs_BackBack(market, market.market1.runners, [], {
-					ex1,
-					ex2
-				})
-			}
-		}
+	if (market.market1.runners.length === 2) {
 		return {
-			BackLay: findArbs_BackLay(market, market.market1.runners, [], {
+			BackBack: findArbs_BackBack(market, market.market1.runners, [], {
 				ex1,
 				ex2
 			})
 		}
+	}
+	return {
+		BackLay: findArbs_BackLay(market, market.market1.runners, [], {
+			ex1,
+			ex2
+		})
 	}
 }
 
@@ -490,33 +490,51 @@ function placeArbs(event) {
 	console.log("placeArbs")
 }
 
-function allocateFundsPerArb(eventsWithArbs) {
+async function allocateFundsPerArb(arbs) {
+	const betfairBalance = await client.get("betfairBalance")
+	const matchbookBalance = await client.get("matchbookBalance")
+	const numberOfArbs = arbs.length
+	const sumOfDifferences = arbs.reduce((diff, arb) => {
+		return diff + parseFloat(arb.split("||")[1])
+	}, 0)
+	const arbsWithPercentages = arbs.map(arb => {
+		return `${arb}||${(parseFloat(arb.split("||")[1]) / sumOfDifferences) * 100}`
+	})
+	const sortedArbs = arbsWithPercentages.sort((a, b) => {
+		return parseFloat(b.split("||")[10]) - parseFloat(a.split("||")[10])
+	})
+
+	/**
+	 * 1. Sum up all the differences from all arbs 					DONE
+	 * 2. Work out each arb on a percentage basis					DONE
+	 * 3. Allocate largest amount of funds to highest percentage
+	 */
 	console.log("allocatingFunds")
 }
 
-function getArbsInSameMarket(arbs) {
-	let remainingArbs
-	let sameMarkets
+// function getArbsInSameMarket(arbs) {
+// 	let remainingArbs
+// 	let sameMarkets
 
-	return arbs.reduce((acc, val) => {
-		remainingArbs = arbs.filter(arb => {
-			// These differences are to about 10 decimal places
-			// Extremely unlikely that 2 arbs will ever have the exact same difference
-			return arb.difference !== val.difference
-		})
+// 	return arbs.reduce((acc, val) => {
+// 		remainingArbs = arbs.filter(arb => {
+// 			// These differences are to about 10 decimal places
+// 			// Extremely unlikely that 2 arbs will ever have the exact same difference
+// 			return arb.difference !== val.difference
+// 		})
 
-		if (remainingArbs.length) {
-			sameMarkets = remainingArbs.filter(backLayArb => {
-				return val.outcome1.market === backLayArb.outcome1.market && val.outcome2.market === backLayArb.outcome2.market
-			})
+// 		if (remainingArbs.length) {
+// 			sameMarkets = remainingArbs.filter(backLayArb => {
+// 				return val.outcome1.market === backLayArb.outcome1.market && val.outcome2.market === backLayArb.outcome2.market
+// 			})
 
-			if (sameMarkets.length) {
-				acc.push(sameMarkets)
-			}
-		}
-		return acc
-	}, [])
-}
+// 			if (sameMarkets.length) {
+// 				acc.push(sameMarkets)
+// 			}
+// 		}
+// 		return acc
+// 	}, [])
+// }
 
 /**
  * Okay this seems like a horrible piece of dog poo but is actually very simple...
@@ -526,60 +544,63 @@ function getArbsInSameMarket(arbs) {
  * The massive ternary just checks whether the runners (outcome1/outcome2/lay/back) of the initial arb
  * Are present in that of the other arb
  */
-function findArbsInSameMarket(arbs) {
-	const { BackBack, BackLay } = arbs
+// function findArbsInSameMarket(arbs) {
+// 	const { BackBack, BackLay } = arbs
 
-	let inSameMarket = []
-	let remainingBackBackArbs
+// 	let inSameMarket = []
+// 	let remainingBackBackArbs
 
-	if (BackBack.length) {
-		inSameMarket = getArbsInSameMarket(BackBack)
-	}
+// 	if (BackBack.length) {
+// 		inSameMarket = getArbsInSameMarket(BackBack)
+// 	}
 
-	remainingBackBackArbs = inSameMarket.length
-		? BackBack.filter(arb => {
-				return !inSameMarket.includes(arb)
-		  })
-		: BackBack
+// 	remainingBackBackArbs = inSameMarket.length
+// 		? BackBack.filter(arb => {
+// 				return !inSameMarket.includes(arb)
+// 		  })
+// 		: BackBack
 
-	if (BackLay.length) {
-		inSameMarket = getArbsInSameMarket([...BackLay, ...remainingBackBackArbs])
-	}
-	return inSameMarket
-}
+// 	if (BackLay.length) {
+// 		inSameMarket = getArbsInSameMarket([...BackLay, ...remainingBackBackArbs])
+// 	}
+// 	return inSameMarket
+// }
 
 function removeContradictingArbs(eventsWithArbs) {
-	let arbHighestDifference
-	let marketArbType
+	let arbsInSameMarket
+	let splitArb
+	let _splitArb
+	let arbLargestDifference
 
-	return eventsWithArbs.map(event => {
-		return {
-			...event,
-			matchedMarkets: event.matchedMarkets.map(market => {
-				marketArbType = market.arbs.BackBack ? "BackBack" : "BackLay"
+	return eventsWithArbs.filter(arb => {
+		splitArb = arb.split("||")
 
-				if (market.arbs[marketArbType].length > 1) {
-					arbHighestDifference = market.arbs[marketArbType].sort((a, b) => {
-						return a.difference - b.difference
-					})[0]
+		arbsInSameMarket = eventsWithArbs.filter(_arb => {
+			_splitArb = _arb.split("||")
 
-					return {
-						...market,
-						[marketArbType]: arbHighestDifference
-					}
-				}
-				return market
-			})
+			return arb !== _arb && splitArb[3] === _splitArb[3] && splitArb[7] === _splitArb[7]
+		})
+
+		if (arbsInSameMarket.length) {
+			arbLargestDifference = [...arbsInSameMarket, arb].sort((a, b) => {
+				return b.difference - a.difference
+			})[0]
+
+			return arbLargestDifference === arb
 		}
+		return true
 	})
 }
 
-export function matchMarkets(exchangesEvents) {
+export async function matchMarkets(exchangesEvents) {
 	const matchedEvents = findSameEvents(exchangesEvents)
 
 	let eventsWithMatchedMarkets
 	let eventsWithArbs
 	let nonConflictingArbs
+	let formattedArbs
+	let foundArbs
+	let marketArbType
 
 	if (matchedEvents.length) {
 		eventsWithMatchedMarkets = matchedEvents
@@ -595,30 +616,39 @@ export function matchMarkets(exchangesEvents) {
 			.filter(event => event.matchedMarkets.length)
 
 		if (eventsWithMatchedMarkets.length) {
-			eventsWithArbs = eventsWithMatchedMarkets
-				.map(event => {
-					return {
-						...event,
-						matchedMarkets: event.matchedMarkets
+			eventsWithArbs = flattenDeep(
+				eventsWithMatchedMarkets
+					.map(event => {
+						return event.matchedMarkets
 							.map(market => {
-								return {
-									...market,
-									arbs: findArbs(market, event.ex1, event.ex2)
+								if (market.market1.runners.length) {
+									foundArbs = findArbs(market, event.ex1, event.ex2)
+									marketArbType = market.market1.runners.length <= 2 && market.market2.runners.length <= 2 ? "BackBack" : "BackLay"
+
+									if (!foundArbs[marketArbType]) {
+										console.log("debug")
+									}
+
+									if (foundArbs[marketArbType].length) {
+										return foundArbs[marketArbType].map(arb => {
+											return `${marketArbType}||${arb.difference}||${arb.outcome1.ex}||${arb.outcome1.market}||${
+												arb.outcome1.runner.id
+											}||${arb.outcome1.runner.name}||${arb.outcome2.ex}||${arb.outcome2.market}||${arb.outcome2.runner.id}||${
+												arb.outcome2.runner.name
+											}`
+										})
+									}
 								}
 							})
-							.filter(
-								market =>
-									market.arbs &&
-									((market.arbs.BackBack && market.arbs.BackBack.length) || (market.arbs.BackLay && market.arbs.BackLay.length))
-							)
-					}
-				})
-				.filter(event => event.matchedMarkets && event.matchedMarkets.length)
+							.filter(market => market && market.length)
+					})
+					.filter(event => event && event.length)
+			)
 
 			if (eventsWithArbs.length) {
 				nonConflictingArbs = removeContradictingArbs(eventsWithArbs)
 
-				allocateFundsPerArb(nonConflictingArbs)
+				await allocateFundsPerArb(nonConflictingArbs)
 
 				eventsWithArbs.forEach(event => {
 					placeArbs(event)

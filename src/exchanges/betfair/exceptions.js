@@ -2,90 +2,84 @@ import {
 	BettingAPINGException as BettingEx,
 	AccountAPINGException as AccountEx,
 	JSON_RPCExceptions
-} from "../../../lib/enums/exchanges/betfair/exceptions";
-import {
-	ExecutionReportErrorCode,
-	InstructionReportErrorCode
-} from "../../../lib/enums/exchanges/betfair/betting";
-import BetfairConfig from "./config";
+} from "../../../lib/enums/exchanges/betfair/exceptions"
+import { ExecutionReportErrorCode, InstructionReportErrorCode } from "../../../lib/enums/exchanges/betfair/betting"
+import BetfairConfig from "./config"
 
 function BettingException(error, operation) {
-	const {
-		errorCode
-	} = error.data.APINGException;
-	const errorDescription = BettingEx[errorCode].desc;
+	const { errorCode } = error.data.APINGException
+	const errorDescription = BettingEx[errorCode].desc
 
-	let jsonRpcException;
+	let jsonRpcException
 
 	if (String(error.code).indexOf("-320") > -1) {
-		jsonRpcException = "Reserved for implementation-defined server-errors";		
+		jsonRpcException = "Reserved for implementation-defined server-errors"
 	} else {
 		jsonRpcException = JSON_RPCExceptions[String(error.code)].desc
 	}
 
-	this.code = errorCode;
-	this.operation = operation;
-	this.message = `The operation ${operation} failed because: ${errorDescription}${(jsonRpcException) ? ` and ${jsonRpcException}` : ""}`;
-	this.stack = new Error().stack;
+	this.code = errorCode
+	this.operation = operation
+	this.message = `The operation ${operation} failed because: ${errorDescription}${jsonRpcException ? ` and ${jsonRpcException}` : ""}`
+	this.stack = new Error().stack
 }
 
 function AccountException(error, operation) {
-	const {
-		errorCode
-	} = error.data.AccountAPINGException;
-	const errorDescription = AccountEx[errorCode].desc;
+	const { errorCode } = error.data.AccountAPINGException
+	const errorDescription = AccountEx[errorCode].desc
 
-	this.code = errorCode;
-	this.operation = operation;
-	this.message = `The operation ${operation} failed because: ${errorDescription}`;
-	this.stack = new Error().stack;
+	this.code = errorCode
+	this.operation = operation
+	this.message = `The operation ${operation} failed because: ${errorDescription}`
+	this.stack = new Error().stack
 }
 
 function PlaceExecutionReport(error, operation) {
-	const {
-		errorCode
-	} = error;
-	const errorDescription = ExecutionReportErrorCode[errorCode].desc;
+	const { errorCode } = error
+	const errorDescription = ExecutionReportErrorCode[errorCode].desc
 
-	let instructionReportErrors = [];
+	let instructionReportErrors = []
 
 	if (error.instructionReports) {
-		error.instructionReports.forEach(report => instructionReportErrors.push(InstructionReportErrorCode[report.errorCode].desc));
+		error.instructionReports.forEach(report => instructionReportErrors.push(InstructionReportErrorCode[report.errorCode].desc))
 	}
 
-	this.code = errorCode;
-	this.operation = operation;
-	this.message = `The operation ${operation} failed because: ${errorDescription}${(instructionReportErrors.length) ? ` with the instruction error(s): ${JSON.stringify(instructionReportErrors)}` : ""}`;
-	this.stack = new Error().stack;
-};
+	this.code = errorCode
+	this.operation = operation
+	this.message = `The operation ${operation} failed because: ${errorDescription}${
+		instructionReportErrors.length ? ` with the instruction error(s): ${JSON.stringify(instructionReportErrors)}` : ""
+	}`
+	this.stack = new Error().stack
+}
 
 export function getException(details) {
 	// For some reason the spread operator does not work with 'err'
 	// Most likely because this is sometimes an instance of Error and not a 'true' object
 	return {
-		code: (details.err) ? (details.err.code || "-") : "-",
-		message: (details.err) ? (details.err.message || "-") : "-",
-		stack: (details.err) ? (details.err.stack || "-") : "-",
-		operation: (details.err) ? (details.err.operation || "-") : "-",
-		params: (details.params || "-"),
-		type: (details.type || "-"),
-		funcName: (details.funcName || "-"),
-		args: (details.args || "-")
-	};
-
+		code: details.err ? details.err.code || "-" : "-",
+		message: details.err ? details.err.message || "-" : "-",
+		stack: details.err ? details.err.stack || "-" : "-",
+		operation: details.err ? details.err.operation || "-" : "-",
+		params: details.params || "-",
+		type: details.type || "-",
+		funcName: details.funcName || "-",
+		args: details.args || "-"
+	}
 }
 
 export function checkForException(resp, operation, type) {
 	if (resp.data.error) {
 		if (type === "Account") {
-			throw new AccountException(resp.data.error, operation);
+			throw new AccountException(resp.data.error, operation)
 		} else if (type === "Betting") {
-			throw new BettingException(resp.data.error, operation);
+			throw new BettingException(resp.data.error, operation)
 		}
 	}
 
-	if ((resp.data.result instanceof Array && !resp.data.result.length) ||
-		(resp.data.result instanceof Object && !Object.keys(resp.data.result).length)) {
+	if (
+		(resp.data.result instanceof Array && !resp.data.result.length) ||
+		(resp.data.result instanceof Object && !Object.keys(resp.data.result).length)
+	) {
 		throw {
 			code: "NO_DATA",
 			operation,
@@ -99,56 +93,36 @@ export function checkForException(resp, operation, type) {
 	}
 }
 
-function retryOperation() {
-
-}
+function retryOperation() {}
 
 function handleAccountException(err) {
-	const betfairConfig = new BetfairConfig();
-	const {
-		code,
-		message,
-		params,
-		operation,
-		funcName,
-		args
-	} = err;
+	const betfairConfig = BetfairConfig.instance
+	const { code, message, params, operation, funcName, args } = err
 
 	switch (code) {
 		case AccountEx.INVALID_SESSION_INFORMATION.val:
-			betfairConfig.login();
-			break;
+			betfairConfig.login()
+			break
 	}
-	retryOperation();
+	retryOperation()
 }
 
 function handleBettingException(err) {
-	const {
-		code,
-		message,
-		params,
-		operation
-	} = err;
+	const { code, message, params, operation } = err
 
 	switch (code) {
-
 	}
 }
 
 export function handleApiException(err) {
-	const {
-		code,
-		message,
-		stack,
-		type
-	} = err;
+	const { code, message, stack, type } = err
 
 	try {
 		if (code) {
 			if (type === "Account") {
-				handleAccountException(err);
+				handleAccountException(err)
 			} else if (type === "Betting") {
-				handleBettingException(err);
+				handleBettingException(err)
 			}
 			switch (code) {
 				// MarketFilter has too little restrictions
@@ -156,18 +130,18 @@ export function handleApiException(err) {
 					// console.log(error);
 					// marketFilter.addFilter(bettingApi);
 					// await placeBets()
-					break;
+					break
 				case "INSUFFICIENT_FUNDS":
 					// Inform user...AWS SES?
-					break;
+					break
 				default:
-					break;
+					break
 			}
 		}
 		// Standard API error not one built by me
-		console.error(message);
-		console.error(stack);
+		console.error(message)
+		console.error(stack)
 	} catch (err) {
-		fixApiCall(err);
+		fixApiCall(err)
 	}
 }
