@@ -1,30 +1,35 @@
 import moment from "moment"
-import fs from "fs"
-import asyncRedis from "async-redis"
+import { MongoClient } from "mongodb"
 
 import BettingApi from "./apis/betting"
 import AccountsApi from "./apis/account"
 import MatchbookConfig from "./config"
+import { buildFormattedEvents } from "./format"
 
-import * as helpers from "../../helpers"
-
-const client = asyncRedis.createClient()
-
-let matchbookConfig
 let accountsApi
 let bettingApi
 
-client.on("error", err => {
-	console.error("Error: ", err)
-})
-
-async function getAccountFunds() {
+async function setAccountFunds(db) {
 	let response
 
 	try {
 		response = await accountsApi.getBalance()
 
-		return response.data.balance.toString()
+		await db.collection("config").updateOne(
+			{
+				sportsToUse: {
+					$exists: true
+				}
+			},
+			{
+				$set: {
+					matchbookBalance: response.data.balance
+				}
+			},
+			{
+				upsert: false
+			}
+		)
 	} catch (err) {
 		console.error(err)
 	}
@@ -47,7 +52,7 @@ async function getSports() {
 	}
 }
 
-async function getEvents(sportIds) {
+async function getEvents(sportIds, db) {
 	const gap = moment.duration(2, "hours")
 
 	let params = {
@@ -71,9 +76,23 @@ async function getEvents(sportIds) {
 		"exchange-type": "back-lay"
 	}
 	let response
+	let config
 
 	try {
-		params.currency = await client.get("defaultCurrency")
+		config = await db
+			.collection("config")
+			.find(
+				{
+					sportsToUse: {
+						$exists: true
+					}
+				},
+				{
+					defaultCurrency: 1
+				}
+			)
+			.toArray()
+		params.currency = config[0].defaultCurrency
 		response = await bettingApi.getEvents(params)
 
 		return response.data.events
@@ -82,35 +101,55 @@ async function getEvents(sportIds) {
 	}
 }
 
-async function getSportIds(sports) {
-	const sportsToUse = JSON.parse(await client.get("sportsToUse"))
+async function getSportIds(sports, db) {
+	const config = await db
+		.collection("config")
+		.find(
+			{
+				sportsToUse: {
+					$exists: true
+				}
+			},
+			{
+				sportsToUse: 1
+			}
+		)
+		.toArray()
 
 	return sports
 		.filter(sport => {
-			return sportsToUse.includes(sport.name)
+			return config[0].sportsToUse.includes(sport.name)
 		})
 		.map(sport => sport.id)
 }
 
 export async function init() {
 	const matchbookInstance = new MatchbookConfig()
+
 	let sports
 	let sportsIds
 	let events
-
-	matchbookInstance.initAxios()
-	await matchbookInstance.login()
-
-	accountsApi = new AccountsApi()
-	bettingApi = new BettingApi()
+	let client
+	let db
 
 	try {
-		console.time("matchbook")
-		await client.set("matchbookBalance", await getAccountFunds())
-		sports = await getSports()
-		sportsIds = await getSportIds(sports)
+		matchbookInstance.initAxios()
+		await matchbookInstance.login()
 
-		events = await getEvents(sportsIds)
+		accountsApi = new AccountsApi()
+		bettingApi = new BettingApi()
+
+		client = await MongoClient.connect(process.env.DB_URL, {
+			useNewUrlParser: true
+		})
+		db = client.db(process.env.DB_NAME)
+
+		console.time("matchbook")
+		await setAccountFunds(db)
+		sports = await getSports()
+		sportsIds = await getSportIds(sports, db)
+
+		events = await getEvents(sportsIds, db)
 
 		// let thingsToRight = [];
 		// events.forEach(event => {
@@ -126,7 +165,7 @@ export async function init() {
 		// fs.writeFileSync("./matchbook_events.json", JSON.stringify(thingsToRight));
 
 		console.timeEnd("matchbook")
-		return helpers.matchbook_buildFullEvents(events)
+		return buildFormattedEvents(events)
 	} catch (err) {
 		console.log(err)
 	}

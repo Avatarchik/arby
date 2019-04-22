@@ -1,6 +1,6 @@
 import moment from "moment"
 import { chunk, flattenDeep } from "lodash"
-import asyncRedis from "async-redis"
+import { MongoClient } from "mongodb"
 
 import BettingApi from "./apis/betting"
 import AccountsApi from "./apis/account"
@@ -20,24 +20,19 @@ import {
 	MatchProjection
 } from "../../../lib/enums/exchanges/betfair/betting"
 import { Operations as AccountOperations } from "../../../lib/enums/exchanges/betfair/account"
-import * as helpers from "../../helpers"
+import { buildFormattedEvents } from "./format"
 
 const BETTING = "Betting"
 const ACCOUNT = "Account"
-const client = asyncRedis.createClient()
 
 let bettingApi
 let accountApi
 
-client.on("error", err => {
-	console.log("Error: ", err)
-})
-
-async function getAccountFunds() {
+async function setAccountFunds(db) {
 	const params = {
 		filter: {}
 	}
-	const funcName = getAccountFunds.name
+	const funcName = setAccountFunds.name
 	const type = ACCOUNT
 
 	let response
@@ -47,15 +42,27 @@ async function getAccountFunds() {
 
 		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type)
 
-		await client.set("betfairBalance", response.data.result.availableToBetBalance.toString())
+		await db.collection("config").updateOne(
+			{
+				sportsToUse: {
+					$exists: true
+				}
+			},
+			{
+				$set: {
+					betfairBalance: response.data.result.availableToBetBalance
+				}
+			}
+		)
 	} catch (err) {
-		throw getException({
-			err,
-			params,
-			type,
-			funcName,
-			args
-		})
+		process.exit(1)
+		// throw getException({
+		// 	err,
+		// 	params,
+		// 	type,
+		// 	funcName,
+		// 	args
+		// })
 	}
 }
 
@@ -147,11 +154,11 @@ async function getEvents(...args) {
 	}
 }
 
-async function getMarketCatalogues(eventIds) {
+async function getMarketCatalogues(eventIds, db) {
 	const type = BETTING
 	const funcName = getMarketCatalogues.name
 	// If there is an error of TOO_MUCH_DATA, lower the amount of size
-	const idChunks = chunk(eventIds, 2)
+	const idChunks = chunk(eventIds, 5)
 
 	let params = {
 		filter: {},
@@ -167,13 +174,30 @@ async function getMarketCatalogues(eventIds) {
 	let response
 	let marketCatalogues = []
 	let marketCataloguePromises
+	let config
 
 	try {
+		config = await db
+			.collection("config")
+			.find(
+				{
+					sportsToUse: {
+						$exists: true
+					}
+				},
+				{
+					betOnOdds: 1,
+					betOnSpread: 1,
+					betOnAsianHandicapSingleLine: 1,
+					betOnAsianHandicapDoubleLine: 1
+				}
+			)
+			.toArray()
 		params.filter.marketBettingTypes = [
-			...((await client.get("betOnOdds")) === "true" ? [MarketBettingType.ODDS.val] : []),
-			...((await client.get("betOnSpread")) === "true" ? [MarketBettingType.LINE.val] : []),
-			...((await client.get("betOnAsianHandicapSingleLine")) === "true" ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-			...((await client.get("betOnAsianHandicapDoubleLine")) === "true" ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+			...(config[0].betOnOdds ? [MarketBettingType.ODDS.val] : []),
+			...(config[0].betOnSpread ? [MarketBettingType.LINE.val] : []),
+			...(config[0].betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+			...(config[0].betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
 		]
 
 		console.time("market-catalogues")
@@ -254,36 +278,36 @@ async function getMarketBooks(marketIds) {
 	}
 }
 
-async function placeBets(markets, funds) {
-	const marketsWithAllocatedFunds = helpers.allocateFundsPerRunner(markets, funds)
-	const params = {
-		marketId: marketsWithAllocatedFunds[0].marketId,
-		instructions: [
-			{
-				orderType: OrderType.LIMIT.val,
-				selectionId: String(marketsWithAllocatedFunds[0].runnerToBack.selectionId),
-				side: Side.BACK.val,
-				limitOrder: {
-					size: Number(marketsWithAllocatedFunds[0].runnerToBack.priceToBet),
-					price: marketsWithAllocatedFunds[0].runnerToBack.lowestPrice, // 20% of the current market price...
-					persistenceType: PersistenceType.PERSIST.val // No going back...
-				}
-			}
-		],
-		async: false
-	}
+// async function placeBets(markets, funds) {
+// 	const marketsWithAllocatedFunds = helpers.allocateFundsPerRunner(markets, funds)
+// 	const params = {
+// 		marketId: marketsWithAllocatedFunds[0].marketId,
+// 		instructions: [
+// 			{
+// 				orderType: OrderType.LIMIT.val,
+// 				selectionId: String(marketsWithAllocatedFunds[0].runnerToBack.selectionId),
+// 				side: Side.BACK.val,
+// 				limitOrder: {
+// 					size: Number(marketsWithAllocatedFunds[0].runnerToBack.priceToBet),
+// 					price: marketsWithAllocatedFunds[0].runnerToBack.lowestPrice, // 20% of the current market price...
+// 					persistenceType: PersistenceType.PERSIST.val // No going back...
+// 				}
+// 			}
+// 		],
+// 		async: false
+// 	}
 
-	let response
+// 	let response
 
-	try {
-		response = await bettingApi.placeOrders(params)
+// 	try {
+// 		response = await bettingApi.placeOrders(params)
 
-		checkForException(response, BettingOperations.PLACE_ORDERS, Betting)
-		return response.data.result
-	} catch (err) {
-		throw getException(err, params, Betting)
-	}
-}
+// 		checkForException(response, BettingOperations.PLACE_ORDERS, Betting)
+// 		return response.data.result
+// 	} catch (err) {
+// 		throw getException(err, params, Betting)
+// 	}
+// }
 
 // function setupScheduleJobs() {
 // 	let dateToSchedule
@@ -301,12 +325,24 @@ async function placeBets(markets, funds) {
 // 	})
 // }
 
-async function getEventTypeIds(eventTypes) {
-	const sportsToUse = JSON.parse(await client.get("sportsToUse"))
+async function getEventTypeIds(eventTypes, db) {
+	const config = await db
+		.collection("config")
+		.find(
+			{
+				sportsToUse: {
+					$exists: true
+				}
+			},
+			{
+				sportsToUse: 1
+			}
+		)
+		.toArray()
 
 	return eventTypes
 		.filter(event => {
-			return sportsToUse.includes(event.eventType.name)
+			return config[0].sportsToUse.includes(event.eventType.name)
 		})
 		.map(event => event.eventType.id)
 }
@@ -342,26 +378,33 @@ export async function init() {
 	let marketBooks
 	let marketBookIds
 	let marketCataloguesWithBooks
+	let client
+	let db
 	let marketTypes
 
-	betfairInstance.initAxios()
-	await betfairInstance.login()
-
-	accountApi = new AccountsApi()
-	bettingApi = new BettingApi()
-
 	try {
+		betfairInstance.initAxios()
+		await betfairInstance.login()
+
+		accountApi = new AccountsApi()
+		bettingApi = new BettingApi()
+
+		client = await MongoClient.connect(process.env.DB_URL, {
+			useNewUrlParser: true
+		})
+		db = client.db(process.env.DB_NAME)
+
 		console.time("betfair")
-		await getAccountFunds()
+		await setAccountFunds(db)
 		eventTypes = await getEventTypes()
-		eventTypeIds = await getEventTypeIds(eventTypes)
-		marketTypes = await getMarketTypes(eventTypeIds)
+		eventTypeIds = await getEventTypeIds(eventTypes, db)
+		// marketTypes = await getMarketTypes(eventTypeIds)
 
 		events = await getEvents(eventTypeIds)
 		trueEvents = removeBogusTennisEvents(events)
 		eventIds = trueEvents.map(event => event.event.id)
 
-		marketCatalogues = await getMarketCatalogues(eventIds)
+		marketCatalogues = await getMarketCatalogues(eventIds, db)
 
 		marketIds = marketCatalogues.map(catalogue => catalogue.marketId)
 
@@ -374,9 +417,8 @@ export async function init() {
 		marketCataloguesWithBooks = marketCatalogues.filter(catalogue => {
 			return marketBookIds.includes(catalogue.marketId)
 		})
-		const cityCatalogues = marketCatalogues.filter(catalogue => catalogue.event.name.indexOf("Man City") > -1)
 
-		return helpers.betfair_buildFullEvents(marketCataloguesWithBooks, marketBooks)
+		return buildFormattedEvents(marketCataloguesWithBooks, marketBooks)
 	} catch (err) {
 		handleApiException(err)
 	}

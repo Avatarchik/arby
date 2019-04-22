@@ -7,8 +7,8 @@ import chalk from "chalk"
 import cluster from "cluster"
 
 import { initWorker } from "./worker"
-import { matchMarkets } from "./calcs"
-import * as redis from "./redis"
+import * as db from "./db"
+import strategies from "./strategies"
 
 const app = express()
 const log = console.log
@@ -18,6 +18,7 @@ const clusterMap = {}
 let worker
 let matchbookEvents
 let betfairEvents
+let noCountry
 
 if (cluster.isMaster) {
 	app.use(bodyParser.json())
@@ -38,8 +39,7 @@ if (cluster.isMaster) {
 		log(chalk.green("--------------------"))
 	})
 
-	redis
-		.setDefaults()
+	db.setDefaults()
 		.then(() => {
 			for (let i = 0; i < bookies.length; i++) {
 				worker = cluster.fork({
@@ -54,22 +54,29 @@ if (cluster.isMaster) {
 							break
 						case "MATCHBOOK":
 							matchbookEvents = message.builtEvents
+
+							noCountry = matchbookEvents.filter(event => !event.country)
+
+							if (noCountry.length) {
+								console.log("NO COUNTRIES!!!")
+							}
 							break
 						default:
 							console.log("Bookie not supported")
 					}
 
 					if (matchbookEvents && matchbookEvents.length && betfairEvents && betfairEvents.length) {
-						matchMarkets([
-							{
-								name: "matchbook",
-								events: matchbookEvents
-							},
-							{
-								name: "betfair",
-								events: betfairEvents
-							}
-						])
+						strategies
+							.initArbitrage([
+								{
+									name: "matchbook",
+									events: matchbookEvents
+								},
+								{
+									name: "betfair",
+									events: betfairEvents
+								}
+							])
 							.then(res => {})
 							.catch(err => {})
 					} else {

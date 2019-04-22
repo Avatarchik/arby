@@ -1,17 +1,12 @@
 import { filter, uniq, flattenDeep, uniqBy } from "lodash"
 import { findBestMatch } from "string-similarity"
-import ArbTable from "../lib/arb-table"
-import asyncRedis from "async-redis"
+import { MongoClient } from "mongodb"
 
-const client = asyncRedis.createClient()
-
-client.on("error", err => {
-	console.error("Error: ", err)
-})
+import ArbTable from "../../../lib/arb-table"
 
 function getExchangesToCompare(exchanges, exchangeBeingChecked, exchangesChecked) {
 	return filter(exchanges, exchange => {
-		return exchange.name !== exchangeBeingChecked.name && exchangesChecked.indexOf(exchange.name) <= -1
+		return exchange.name !== exchangeBeingChecked.name && !exchangesChecked.includes(exchange.name)
 	})
 }
 
@@ -110,6 +105,9 @@ function findSameMarkets(matchedEvent, similarityThreshold) {
 		})
 
 		if (marketsOfSameType.length) {
+			if (ex1Market.name === "Set Betting" || ex1Market.name === "WIN" || ex1Market.name === "Series Winner") {
+				console.log("debug")
+			}
 			sameMarket = findSameMarket(marketsOfSameType, ex1Market, similarityThreshold)
 
 			if (sameMarket) {
@@ -142,20 +140,21 @@ function findSameEvents(exchanges) {
 	let eventsMatchingCountryAndType
 	let matchingEvent
 
-	console.time("findSameEvents")
-	for (let i = 0; i < exchanges.length; i++) {
-		exchangesToCompare = getExchangesToCompare(exchanges, exchanges[i], exchangesChecked)
-		exchangesChecked.push(exchanges[i].name)
-		exchangeToCheck = exchanges[i]
+	try {
+		console.time("findSameEvents")
+		for (let i = 0; i < exchanges.length; i++) {
+			exchangesToCompare = getExchangesToCompare(exchanges, exchanges[i], exchangesChecked)
+			exchangesChecked.push(exchanges[i].name)
+			exchangeToCheck = exchanges[i]
 
-		if (exchangesToCompare.length) {
-			// Iterate the events of the exchange you are checking
-			for (let j = 0; j < exchanges[i].events.length; j++) {
-				eventToCheck = exchanges[i].events[j]
+			if (exchangesToCompare.length) {
+				// Iterate the events of the exchange you are checking
+				for (let j = 0; j < exchanges[i].events.length; j++) {
+					eventToCheck = exchanges[i].events[j]
 
-				if (eventToCheck.name.indexOf("To Qualify") > -1) {
-					console.log("don't think we care about this anymore as not doing anything with competitors")
-				} else {
+					// if (eventToCheck.name.indexOf("To Qualify") > -1) {
+					//     console.log("don't think we care about this anymore as not doing anything with competitors")
+					// } else {
 					// Iterate the exchanges that are not this one
 					// (This and the iteration above could be swapped around but don't think it makes that much difference to performance)
 					for (let k = 0; k < exchangesToCompare.length; k++) {
@@ -179,15 +178,20 @@ function findSameEvents(exchanges) {
 									ex2: exchangeToCompare.name,
 									event2: matchingEvent
 								})
+							} else {
+								console.log("debug")
 							}
 						}
 					}
+					// }
 				}
 			}
 		}
+		console.timeEnd("findSameEvents")
+		return uniq(matches)
+	} catch (err) {
+		console.error(err)
 	}
-	console.timeEnd("findSameEvents")
-	return uniq(matches)
 }
 
 function getSameRunner(runnerName, otherRunners) {
@@ -491,8 +495,25 @@ function placeArbs(event) {
 }
 
 async function allocateFundsPerArb(arbs) {
-	const betfairBalance = await client.get("betfairBalance")
-	const matchbookBalance = await client.get("matchbookBalance")
+	const client = await MongoClient.connect(process.env.DB_URL, {
+		useNewUrlParser: true
+	})
+	const db = client.db(process.env.DB_NAME)
+	const config = await db
+		.collection("config")
+		.find(
+			{
+				betfairBalance: {
+					$exists: true
+				}
+			},
+			{
+				betfairBalance: 1,
+				matchbookBalance: 1
+			}
+		)
+		.toArray()
+	const { betfairBalance, matchbookBalance } = config[0]
 	const numberOfArbs = arbs.length
 	const sumOfDifferences = arbs.reduce((diff, arb) => {
 		return diff + parseFloat(arb.split("||")[1])
@@ -592,15 +613,15 @@ function removeContradictingArbs(eventsWithArbs) {
 	})
 }
 
-export async function matchMarkets(exchangesEvents) {
+export async function initArbitrage(exchangesEvents) {
 	const matchedEvents = findSameEvents(exchangesEvents)
 
 	let eventsWithMatchedMarkets
 	let eventsWithArbs
 	let nonConflictingArbs
-	let formattedArbs
 	let foundArbs
 	let marketArbType
+	let fundsPerArb
 
 	if (matchedEvents.length) {
 		eventsWithMatchedMarkets = matchedEvents
@@ -625,10 +646,6 @@ export async function matchMarkets(exchangesEvents) {
 									foundArbs = findArbs(market, event.ex1, event.ex2)
 									marketArbType = market.market1.runners.length <= 2 && market.market2.runners.length <= 2 ? "BackBack" : "BackLay"
 
-									if (!foundArbs[marketArbType]) {
-										console.log("debug")
-									}
-
 									if (foundArbs[marketArbType].length) {
 										return foundArbs[marketArbType].map(arb => {
 											return `${marketArbType}||${arb.difference}||${arb.outcome1.ex}||${arb.outcome1.market}||${
@@ -648,7 +665,7 @@ export async function matchMarkets(exchangesEvents) {
 			if (eventsWithArbs.length) {
 				nonConflictingArbs = removeContradictingArbs(eventsWithArbs)
 
-				await allocateFundsPerArb(nonConflictingArbs)
+				fundsPerArb = await allocateFundsPerArb(nonConflictingArbs)
 
 				eventsWithArbs.forEach(event => {
 					placeArbs(event)
