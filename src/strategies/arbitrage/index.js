@@ -94,13 +94,13 @@ function findSameMarket(potentialMarkets, market, threshold) {
 	return matchingMarket
 }
 
-function findSameMarkets(matchedEvent, similarityThreshold) {
+function findSameMarkets(matchedEvents, similarityThreshold) {
 	let marketsOfSameType
 	let matchedMarkets = []
 	let sameMarket
 
-	matchedEvent.event1.markets.forEach(ex1Market => {
-		marketsOfSameType = matchedEvent.event2.markets.filter(ex2Market => {
+	matchedEvents.forEach(ex1Market => {
+		marketsOfSameType = matchedEvents.event2.markets.filter(ex2Market => {
 			return ex2Market.type === ex1Market.type && ex1Market.runners.length === ex2Market.runners.length
 		})
 
@@ -129,16 +129,24 @@ function findSameMarkets(matchedEvent, similarityThreshold) {
 // 	});
 // }
 
+function getTrueEventMatch(eventCheck, matches) {
+	console.log("here")
+}
+
 function findSameEvents(exchanges) {
+	const overallMatches = []
+
 	let exchangesToCompare
 	let exchangeToCheck
 	let exchangeToCompare
 	let eventToCheck
-	let matches = []
+	let eventMatches = []
 	let exchangesChecked = []
-	let eventBestMatch
+	let eventRatings
 	let eventsMatchingCountryAndType
 	let matchingEvent
+	let alternateMatches
+	let trueEventMatch
 
 	try {
 		console.time("findSameEvents")
@@ -150,45 +158,67 @@ function findSameEvents(exchanges) {
 			if (exchangesToCompare.length) {
 				// Iterate the events of the exchange you are checking
 				for (let j = 0; j < exchanges[i].events.length; j++) {
+					eventMatches = []
 					eventToCheck = exchanges[i].events[j]
 
-					// if (eventToCheck.name.indexOf("To Qualify") > -1) {
-					//     console.log("don't think we care about this anymore as not doing anything with competitors")
-					// } else {
-					// Iterate the exchanges that are not this one
-					// (This and the iteration above could be swapped around but don't think it makes that much difference to performance)
-					for (let k = 0; k < exchangesToCompare.length; k++) {
-						exchangeToCompare = exchangesToCompare[k]
+					if (!eventToCheck.name.includes("(Best of 7)")) {
+						// Iterate the exchanges that are not this one
+						// (This and the iteration above could be swapped around but don't think it makes that much difference to performance)
+						for (let k = 0; k < exchangesToCompare.length; k++) {
+							exchangeToCompare = exchangesToCompare[k]
 
-						eventsMatchingCountryAndType = exchangeToCompare.events
-							.filter(eventToCompare => {
-								return countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)
-							})
-							.map(event => event.name)
-
-						if (eventsMatchingCountryAndType && eventsMatchingCountryAndType.length) {
-							eventBestMatch = findBestMatch(eventToCheck.name, eventsMatchingCountryAndType)
-
-							if (eventBestMatch.bestMatch.rating >= 0.5) {
-								matchingEvent = exchangeToCompare.events.find(event => event.name === eventBestMatch.bestMatch.target)
-
-								matches.push({
-									ex1: exchangeToCheck.name,
-									event1: eventToCheck,
-									ex2: exchangeToCompare.name,
-									event2: matchingEvent
+							eventsMatchingCountryAndType = exchangeToCompare.events
+								.filter(eventToCompare => {
+									return countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)
 								})
-							} else {
-								console.log("debug")
+								.map(event => event.name)
+
+							if (eventsMatchingCountryAndType && eventsMatchingCountryAndType.length) {
+								eventRatings = findBestMatch(eventToCheck.name, eventsMatchingCountryAndType)
+
+								if (eventRatings.bestMatch.rating >= 0.3) {
+									alternateMatches = eventRatings.ratings.filter(rating => {
+										const lowerBoundary = eventRatings.bestMatch.rating - eventRatings.bestMatch.rating / 10
+
+										return rating.rating > lowerBoundary && rating.target !== eventRatings.bestMatch.target
+									})
+									if (alternateMatches.length) {
+										trueEventMatch = getTrueEventMatch(eventToCheck.name, [...alternateMatches, eventRatings.bestMatch.target])
+									}
+									matchingEvent = exchangeToCompare.events.find(event => {
+										return event.name === (trueEventMatch || eventRatings.bestMatch.target)
+									})
+
+									if (!eventMatches.length) {
+										eventMatches.push({
+											exchange: exchangeToCheck.name,
+											event: eventToCheck
+										})
+									}
+
+									eventMatches.push({
+										exchange: exchangeToCompare.name,
+										event: matchingEvent
+									})
+									exchangeToCompare.events = exchangeToCompare.events.filter(event => {
+										return event.id !== matchingEvent.id
+									})
+									exchangeToCheck.events = exchangeToCheck.events.filter(event => {
+										return event.id !== eventToCheck.id
+									})
+								}
 							}
 						}
 					}
-					// }
+
+					if (eventMatches.length) {
+						overallMatches.push(eventMatches)
+					}
 				}
 			}
 		}
 		console.timeEnd("findSameEvents")
-		return uniq(matches)
+		return overallMatches
 	} catch (err) {
 		console.error(err)
 	}
