@@ -78,7 +78,9 @@ if (cluster.isMaster) {
 								}
 							])
 							.then(res => {})
-							.catch(err => {})
+							.catch(err => {
+								console.error(err)
+							})
 					} else {
 						console.log("No events")
 					}
