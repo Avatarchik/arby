@@ -13,6 +13,7 @@ exports.initWorker = async function() {
 				bookie: "BETFAIR",
 				builtEvents
 			})
+			process.exit(0)
 			break
 		case "MATCHBOOK":
 			builtEvents = await matchbookInit()
@@ -21,6 +22,7 @@ exports.initWorker = async function() {
 				bookie: "MATCHBOOK",
 				builtEvents
 			})
+			process.exit(0)
 			break
 		default:
 			console.error("Bookie not supported")
