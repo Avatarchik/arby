@@ -1,17 +1,17 @@
-import jsonschema from "jsonschema"
-import { forEach, reduce } from "lodash"
+const jsonschema = require("jsonschema")
+const { forEach, reduce } = require("lodash")
 
-import BetfairConfig from "../config"
+const BetfairConfig = require("../config")
 
-import EnumSchemas from "../../../../models/exchanges/betfair/account/enums"
-import OperationSchemas from "../../../../models/exchanges/betfair/account/operations"
+const EnumSchemas = require("../../../../models/exchanges/betfair/account/enums")
+const OperationSchemas = require("../../../../models/exchanges/betfair/account/operations")
 
-import { Operations } from "../../../../lib/enums/exchanges/betfair/account"
+const { AccountOperations } = require("../../../../lib/enums/exchanges/betfair/account")
 
 /**
  * Class represening the Accounts API
  */
-export default class AccountsAPI {
+module.exports = class AccountsAPI {
 	constructor() {
 		const Validator = jsonschema.Validator
 
@@ -27,9 +27,9 @@ export default class AccountsAPI {
 
 	async getAccountFunds(params) {
 		try {
-			await this.validateParams(Operations.GET_ACCOUNT_FUNDS, params)
+			await this.validateParams(AccountOperations.GET_ACCOUNT_FUNDS, params)
 
-			return this.executeRequest(Operations.GET_ACCOUNT_FUNDS, params)
+			return this.executeRequest(AccountOperations.GET_ACCOUNT_FUNDS, params)
 		} catch (err) {
 			console.error(err)
 		}

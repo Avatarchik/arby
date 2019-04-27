@@ -1,9 +1,9 @@
-import MatchbookConfig from "../config"
+const MatchbookConfig = require("../config")
 
 /**
  * Class representing the Accounts API
  */
-export default class AccountsAPI {
+module.exports = class AccountsAPI {
 	constructor() {
 		this._config = new MatchbookConfig()
 		this._api = this._config.api

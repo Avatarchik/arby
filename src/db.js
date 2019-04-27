@@ -1,6 +1,6 @@
-import { MongoClient } from "mongodb"
+const { MongoClient } = require("mongodb")
 
-export async function setDefaults() {
+exports.setDefaults = async function() {
 	const mongoClient = await MongoClient.connect(process.env.DB_URL, {
 		useNewUrlParser: true
 	})

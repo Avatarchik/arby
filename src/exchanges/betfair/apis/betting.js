@@ -1,18 +1,18 @@
-import jsonschema from "jsonschema"
-import { merge, forEach, map, reduce } from "lodash"
+const jsonschema = require("jsonschema")
+const { merge, forEach, map, reduce } = require("lodash")
 
-import BetfairConfig from "../config"
+const BetfairConfig = require("../config")
 
-import TypeDefinitionSchemas from "../../../../models/exchanges/betfair/betting/typeDefs"
-import EnumSchemas from "../../../../models/exchanges/betfair/betting/enums"
-import OperationSchemas from "../../../../models/exchanges/betfair/betting/operations"
+const TypeDefinitionSchemas = require("../../../../models/exchanges/betfair/betting/typeDefs")
+const EnumSchemas = require("../../../../models/exchanges/betfair/betting/enums")
+const OperationSchemas = require("../../../../models/exchanges/betfair/betting/operations")
 
-import { Operations } from "../../../../lib/enums/exchanges/betfair/betting"
+const { BettingOperations } = require("../../../../lib/enums/exchanges/betfair/betting")
 
 /**
  * Class representing the Betting API
  */
-export default class BettingAPI {
+module.exports = class BettingAPI {
 	constructor() {
 		const Validator = jsonschema.Validator
 
@@ -37,9 +37,9 @@ export default class BettingAPI {
 	 */
 	async listEventTypes(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENT_TYPES, params)
+			await this.validateParams(BettingOperations.LIST_EVENT_TYPES, params)
 
-			return this.executeRequest(Operations.LIST_EVENT_TYPES, params)
+			return this.executeRequest(BettingOperations.LIST_EVENT_TYPES, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -53,9 +53,9 @@ export default class BettingAPI {
 	 */
 	async listCompetitions(params) {
 		try {
-			await this.validateParams(Operations.LIST_COMPETITIONS, params)
+			await this.validateParams(BettingOperations.LIST_COMPETITIONS, params)
 
-			return this.executeRequest(Operations.LIST_COMPETITIONS, params)
+			return this.executeRequest(BettingOperations.LIST_COMPETITIONS, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -69,9 +69,9 @@ export default class BettingAPI {
 	 */
 	async listEvents(params) {
 		try {
-			await this.validateParams(Operations.LIST_EVENTS, params)
+			await this.validateParams(BettingOperations.LIST_EVENTS, params)
 
-			return this.executeRequest(Operations.LIST_EVENTS, params)
+			return this.executeRequest(BettingOperations.LIST_EVENTS, params)
 		} catch (err) {
 			console.log(err)
 		}
@@ -85,9 +85,9 @@ export default class BettingAPI {
 	 */
 	async listMarketCatalogue(params) {
 		try {
-			await this.validateParams(Operations.LIST_MARKET_CATALOGUE, params)
+			await this.validateParams(BettingOperations.LIST_MARKET_CATALOGUE, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_CATALOGUE, params)
+			return this.executeRequest(BettingOperations.LIST_MARKET_CATALOGUE, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -101,9 +101,9 @@ export default class BettingAPI {
 	 */
 	async listMarketBook(params) {
 		try {
-			await this.validateParams(Operations.LIST_MARKET_BOOK, params)
+			await this.validateParams(BettingOperations.LIST_MARKET_BOOK, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_BOOK, params)
+			return this.executeRequest(BettingOperations.LIST_MARKET_BOOK, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -117,9 +117,9 @@ export default class BettingAPI {
 	 */
 	async listRunnerBook(params) {
 		try {
-			await this.validateParams(Operations.LIST_RUNNER_BOOK, params)
+			await this.validateParams(BettingOperations.LIST_RUNNER_BOOK, params)
 
-			return this.executeRequest(Operations.LIST_RUNNER_BOOK, params)
+			return this.executeRequest(BettingOperations.LIST_RUNNER_BOOK, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -189,9 +189,9 @@ export default class BettingAPI {
 	 */
 	async placeOrders(params) {
 		try {
-			await this.validateParams(Operations.PLACE_ORDERS, params)
+			await this.validateParams(BettingOperations.PLACE_ORDERS, params)
 
-			return this.executeRequest(Operations.PLACE_ORDERS, params)
+			return this.executeRequest(BettingOperations.PLACE_ORDERS, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -205,9 +205,9 @@ export default class BettingAPI {
 	 */
 	async cancelOrders(params) {
 		try {
-			await this.validateParams(Operations.CANCEL_ORDERS, params)
+			await this.validateParams(BettingOperations.CANCEL_ORDERS, params)
 
-			return this.executeRequest(Operations.CANCEL_ORDERS, params)
+			return this.executeRequest(BettingOperations.CANCEL_ORDERS, params)
 		} catch (err) {
 			console.error(err)
 		}
@@ -222,9 +222,9 @@ export default class BettingAPI {
 	async listMarketTypes(params) {
 		// I will want to call this endpoint every so often as market types might change
 		try {
-			await this.validateParams(Operations.LIST_MARKET_TYPES, params)
+			await this.validateParams(BettingOperations.LIST_MARKET_TYPES, params)
 
-			return this.executeRequest(Operations.LIST_MARKET_TYPES, params)
+			return this.executeRequest(BettingOperations.LIST_MARKET_TYPES, params)
 		} catch (err) {
 			console.error(err)
 		}

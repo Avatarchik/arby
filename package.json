@@ -6,8 +6,8 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"build": "rm -rf dist && $(npm bin)/babel src -d dist --source-maps",
-		"start:dev": "NODE_ENV=development $(npm bin)/babel-node index.js",
-		"start:prod": "NODE_ENV=production npm run build && $(npm bin)/nodemon dist/app.js"
+		"start:dev": "NODE_ENV=development && node --inspect index.js",
+		"start:prod": "NODE_ENV=production && npm run build && $(npm bin)/nodemon dist/app.js"
 	},
 	"husky": {
 		"hooks": {

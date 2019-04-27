@@ -1,5 +1,5 @@
-import { initArbitrage } from "./arbitrage"
+const { initArbitrage } = require("./arbitrage")
 
-export default {
+module.exports = {
 	initArbitrage
 }

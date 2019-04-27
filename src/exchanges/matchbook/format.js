@@ -1,8 +1,8 @@
-import { getCode, overwrite } from "country-list"
-import { flatten } from "lodash"
+const { getCode, overwrite } = require("country-list")
+const { flatten } = require("lodash")
 
-import countryListOverrides from "../../../lib/country-list-overrides"
-import MarketTypes from "../../../lib/enums/marketTypes"
+const countryListOverrides = require("../../../lib/country-list-overrides")
+const MarketTypes = require("../../../lib/enums/marketTypes")
 
 overwrite(countryListOverrides)
 
@@ -101,11 +101,8 @@ function getMarketType(market) {
 
 	// There are some exceptions where going off the type of the market is not strictly accurate
 	// In this case below, the type here is 'money-line' even though it is clearly an Outright
-	if (market.name === "Series Winner") {
+	if (market.name === "Series Winner" || market.name === "Set Betting") {
 		return "OUTRIGHT"
-	}
-	if (market.name === "Set Betting") {
-		console.log("debug")
 	}
 	if (market.runners.length === 2) {
 		if (isAsianQuarterLine(runnerToTest)) {
@@ -177,19 +174,19 @@ function formatMarkets(markets) {
 	)
 }
 
-export function buildFormattedEvents(events) {
+exports.buildFormattedEvents = function(events) {
 	return events
 		.map(event => {
 			const metaTags = event["meta-tags"]
 			const countryTag = metaTags.find(tag => tag.type === "COUNTRY")
 			const eventTypeTag = metaTags.find(tag => tag.type === "SPORT")
 
-			if (countryTag && getCode(countryTag.name) === undefined) {
-				console.log(countryTag.name)
-			}
-			if (!countryTag) {
-				console.log(event)
-			}
+			// if (countryTag && getCode(countryTag.name) === undefined) {
+			// 	console.log(countryTag.name)
+			// }
+			// if (!countryTag) {
+			// 	console.log(event)
+			// }
 
 			return {
 				id: event.id || "-",

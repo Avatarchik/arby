@@ -1,29 +1,28 @@
-import { init as BetfairInit } from "./exchanges/betfair";
-import { init as MatchbookInit } from "./exchanges/matchbook";
-import fs from "fs";
+const { betfairInit } = require("./exchanges/betfair")
+const { matchbookInit } = require("./exchanges/matchbook")
 
-export async function initWorker() {
-	let builtEvents;
+exports.initWorker = async function() {
+	let builtEvents
 
 	switch (process.env.workerId) {
 		case "BETFAIR":
-			builtEvents = await BetfairInit();
+			builtEvents = await betfairInit()
 			// fs.writeFileSync("betfair_events.json", JSON.stringify(builtEvents.map(event => event.name)));
 
 			process.send({
 				bookie: "BETFAIR",
 				builtEvents
-			});
-			break;
+			})
+			break
 		case "MATCHBOOK":
-			builtEvents = await MatchbookInit();
+			builtEvents = await matchbookInit()
 
 			process.send({
 				bookie: "MATCHBOOK",
 				builtEvents
-			});
-			break;
+			})
+			break
 		default:
-			console.error("Bookie not supported");
+			console.error("Bookie not supported")
 	}
 }

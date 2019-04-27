@@ -1,14 +1,14 @@
-import express from "express"
-import session from "express-session"
-import bodyParser from "body-parser"
-import morgan from "morgan"
-import cors from "cors"
-import chalk from "chalk"
-import cluster from "cluster"
+const express = require("express")
+const session = require("express-session")
+const bodyParser = require("body-parser")
+const morgan = require("morgan")
+const cors = require("cors")
+const chalk = require("chalk")
+const cluster = require("cluster")
 
-import { initWorker } from "./worker"
-import * as db from "./db"
-import strategies from "./strategies"
+const { initWorker } = require("./worker")
+const db = require("./db")
+const strategies = require("./strategies")
 
 const app = express()
 const log = console.log
@@ -110,4 +110,4 @@ if (cluster.isMaster) {
 	initWorker()
 }
 
-export default app
+module.exports = app

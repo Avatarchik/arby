@@ -1,7 +1,7 @@
-import axios from "axios"
-import { Login } from "betfair-js-login"
+const axios = require("axios")
+const { Login } = require("betfair-js-login")
 
-export default class BetfairConfig {
+module.exports = class BetfairConfig {
 	constructor() {
 		if (!BetfairConfig.instance) {
 			BetfairConfig.instance = this

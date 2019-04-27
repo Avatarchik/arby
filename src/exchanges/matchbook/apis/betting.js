@@ -1,16 +1,16 @@
-import jsonschema from "jsonschema"
-import { forEach, reduce } from "lodash"
+const jsonschema = require("jsonschema")
+const { forEach, reduce } = require("lodash")
 
-import MatchbookConfig from "../config"
+const MatchbookConfig = require("../config")
 
-import EnumSchemas from "../../../../models/exchanges/matchbook/betting/enums"
-import OperationSchemas from "../../../../models/exchanges/matchbook/betting/operations"
-import { Operations } from "../../../../lib/enums/exchanges/matchbook/betting"
+const EnumSchemas = require("../../../../models/exchanges/matchbook/betting/enums")
+const OperationSchemas = require("../../../../models/exchanges/matchbook/betting/operations")
+const { Operations } = require("../../../../lib/enums/exchanges/matchbook/betting")
 
 /**
  * Class representing the Betting API
  */
-export default class BettingAPI {
+module.exports = class BettingAPI {
 	constructor() {
 		const Validator = jsonschema.Validator
 

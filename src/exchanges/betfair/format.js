@@ -1,6 +1,6 @@
-import { mapValues, values, groupBy, flatten } from "lodash"
+const { mapValues, values, groupBy, flatten } = require("lodash")
 
-import MarketTypes from "../../../lib/enums/marketTypes"
+const MarketTypes = require("../../../lib/enums/marketTypes")
 
 function getMarketType(market) {
 	let actual
@@ -207,7 +207,7 @@ function formatMarkets(markets) {
 	)
 }
 
-export function buildFormattedEvents(catalogues, books) {
+exports.buildFormattedEvents = function(catalogues, books) {
 	const groupByEventId = groupBy(catalogues, catalogue => catalogue.event.id)
 
 	let marketBook

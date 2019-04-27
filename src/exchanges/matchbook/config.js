@@ -1,6 +1,6 @@
-import axios from "axios"
+const axios = require("axios")
 
-export default class MatchbookConfig {
+module.exports = class MatchbookConfig {
 	constructor() {
 		if (!MatchbookConfig.instance) {
 			MatchbookConfig.instance = this
@@ -41,7 +41,7 @@ export default class MatchbookConfig {
 			process.env.MATCHBOOK_SESSIONTOKEN = response.data["session-token"]
 			this._api.defaults.headers.common["session-token"] = process.env.MATCHBOOK_SESSIONTOKEN
 		} catch (err) {
-			console.error(err)
+			throw err
 		}
 	}
 

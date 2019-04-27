@@ -82,7 +82,7 @@ const TimeInForce = {
 	}
 }
 
-export default {
+module.exports = {
 	OrderProjection,
 	OrderType,
 	PersistenceType,

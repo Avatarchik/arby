@@ -1,8 +1,8 @@
-import { flattenDeep } from "lodash"
-import { findBestMatch } from "string-similarity"
-import { MongoClient } from "mongodb"
+const { flattenDeep } = require("lodash")
+const { findBestMatch } = require("string-similarity")
+const { MongoClient } = require("mongodb")
 
-import ArbTable from "../../../lib/arb-table"
+const ArbTable = require("../../../lib/arb-table")
 
 function getExchangesToCompare_findEvents(exchanges, exchangeBeingChecked) {
 	return exchanges.filter(exchange => {
@@ -633,7 +633,7 @@ function removeContradictingArbs(eventsWithArbs) {
 	})
 }
 
-export async function initArbitrage(exchangesEvents) {
+exports.initArbitrage = async function(exchangesEvents) {
 	const matchedEvents = findSameEvents(exchangesEvents)
 
 	let eventsWithMatchedMarkets

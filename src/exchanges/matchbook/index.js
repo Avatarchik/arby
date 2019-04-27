@@ -1,10 +1,10 @@
-import moment from "moment"
-import { MongoClient } from "mongodb"
+const moment = require("moment")
+const { MongoClient } = require("mongodb")
 
-import BettingApi from "./apis/betting"
-import AccountsApi from "./apis/account"
-import MatchbookConfig from "./config"
-import { buildFormattedEvents } from "./format"
+const BettingApi = require("./apis/betting")
+const AccountsApi = require("./apis/account")
+const MatchbookConfig = require("./config")
+const { buildFormattedEvents } = require("./format")
 
 let accountsApi
 let bettingApi
@@ -56,7 +56,7 @@ async function getEvents(sportIds, db) {
 	const gap = moment.duration(2, "hours")
 
 	let params = {
-		"per-page": 100,
+		"per-page": 500,
 		after: String(
 			moment()
 				.subtract(gap)
@@ -95,6 +95,7 @@ async function getEvents(sportIds, db) {
 		params.currency = config[0].defaultCurrency
 		response = await bettingApi.getEvents(params)
 
+		console.log(JSON.stringify(response.data.events[0]))
 		return response.data.events
 	} catch (err) {
 		console.error(err)
@@ -123,7 +124,7 @@ async function getSportIds(sports, db) {
 		.map(sport => sport.id)
 }
 
-export async function init() {
+exports.matchbookInit = async function() {
 	const matchbookInstance = new MatchbookConfig()
 
 	let sports
@@ -150,19 +151,6 @@ export async function init() {
 		sportsIds = await getSportIds(sports, db)
 
 		events = await getEvents(sportsIds, db)
-
-		// let thingsToRight = [];
-		// events.forEach(event => {
-		// 	event.markets.forEach(market => {
-		// 		thingsToRight.push({
-		// 			name: market.name,
-		// 			type: market["market-type"],
-		// 			runnerNo: market.runners.length,
-		// 			runners: market.runners.map(runner => runner.name)
-		// 		});
-		// 	});
-		// });
-		// fs.writeFileSync("./matchbook_events.json", JSON.stringify(thingsToRight));
 
 		console.timeEnd("matchbook")
 		return buildFormattedEvents(events)

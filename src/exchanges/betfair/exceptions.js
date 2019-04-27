@@ -1,10 +1,6 @@
-import {
-	BettingAPINGException as BettingEx,
-	AccountAPINGException as AccountEx,
-	JSON_RPCExceptions
-} from "../../../lib/enums/exchanges/betfair/exceptions"
-import { ExecutionReportErrorCode, InstructionReportErrorCode } from "../../../lib/enums/exchanges/betfair/betting"
-import BetfairConfig from "./config"
+const { BettingAPINGException, AccountAPINGException, JSON_RPCExceptions } = require("../../../lib/enums/exchanges/betfair/exceptions")
+const { ExecutionReportErrorCode, InstructionReportErrorCode } = require("../../../lib/enums/exchanges/betfair/betting")
+const BetfairConfig = require("./config")
 
 function BettingException(error, operation) {
 	const { errorCode } = error.data.APINGException
@@ -52,7 +48,7 @@ function PlaceExecutionReport(error, operation) {
 	this.stack = new Error().stack
 }
 
-export function getException(details) {
+exports.getException = function(details) {
 	// For some reason the spread operator does not work with 'err'
 	// Most likely because this is sometimes an instance of Error and not a 'true' object
 	return {
@@ -67,7 +63,7 @@ export function getException(details) {
 	}
 }
 
-export function checkForException(resp, operation, type) {
+exports.checkForException = function(resp, operation, type) {
 	if (resp.data.error) {
 		if (type === "Account") {
 			throw new AccountException(resp.data.error, operation)
@@ -114,7 +110,7 @@ function handleBettingException(err) {
 	}
 }
 
-export function handleApiException(err) {
+exports.handleApiException = function(err) {
 	const { code, message, stack, type } = err
 
 	try {

@@ -1,13 +1,13 @@
-import moment from "moment"
-import { chunk, flattenDeep } from "lodash"
-import { MongoClient } from "mongodb"
+const moment = require("moment")
+const { chunk, flattenDeep } = require("lodash")
+const { MongoClient } = require("mongodb")
 
-import BettingApi from "./apis/betting"
-import AccountsApi from "./apis/account"
+const BettingApi = require("./apis/betting")
+const AccountsApi = require("./apis/account")
 // import MarketFilter from "./betting/marketFilter";
-import BetfairConfig from "./config"
-import { handleApiException, checkForException, getException } from "./exceptions"
-import {
+const BetfairConfig = require("./config")
+const { handleApiException, checkForException, getException } = require("./exceptions")
+const {
 	MarketProjection,
 	PriceData,
 	OrderType,
@@ -15,12 +15,12 @@ import {
 	PersistenceType,
 	OrderProjection,
 	EventTypes,
-	Operations as BettingOperations,
+	BettingOperations,
 	MarketBettingType,
 	MatchProjection
-} from "../../../lib/enums/exchanges/betfair/betting"
-import { Operations as AccountOperations } from "../../../lib/enums/exchanges/betfair/account"
-import { buildFormattedEvents } from "./format"
+} = require("../../../lib/enums/exchanges/betfair/betting")
+const { AccountOperations } = require("../../../lib/enums/exchanges/betfair/account")
+const { buildFormattedEvents } = require("./format")
 
 const BETTING = "Betting"
 const ACCOUNT = "Account"
@@ -154,11 +154,11 @@ async function getEvents(...args) {
 	}
 }
 
-async function getMarketCatalogues(eventIds, db) {
+async function getMarketCatalogues(eventIds, db, toChunk) {
 	const type = BETTING
 	const funcName = getMarketCatalogues.name
 	// If there is an error of TOO_MUCH_DATA, lower the amount of size
-	const idChunks = chunk(eventIds, 5)
+	const idChunks = chunk(eventIds, toChunk)
 
 	let params = {
 		filter: {},
@@ -224,14 +224,20 @@ async function getMarketCatalogues(eventIds, db) {
 		}
 
 		console.timeEnd("market-catalogues")
+		console.log(JSON.stringify(marketCatalogues[0][0]))
 		return flattenDeep(marketCatalogues)
 	} catch (err) {
-		throw getException({
-			err,
-			params,
-			type,
-			funcName
-		})
+		switch (err.code) {
+			case "TOO_MUCH_DATA":
+				return getMarketCatalogues(eventIds, db, toChunk - 1)
+			default:
+				throw getException({
+					err,
+					params,
+					type,
+					funcName
+				})
+		}
 	}
 }
 
@@ -257,7 +263,7 @@ async function getMarketBooks(marketIds) {
 	// }
 
 	try {
-		for await (const ids of idChunks) {
+		for (const ids of idChunks) {
 			// await timeout(500)
 			params.marketIds = ids
 
@@ -267,6 +273,7 @@ async function getMarketBooks(marketIds) {
 
 			marketBooks.push(response.data.result)
 		}
+		console.log(JSON.stringify(marketBooks[0][0]))
 		return flattenDeep(marketBooks)
 	} catch (err) {
 		throw getException({
@@ -365,7 +372,7 @@ function removeBogusTennisEvents(events) {
 	})
 }
 
-export async function init() {
+exports.betfairInit = async function() {
 	const betfairInstance = new BetfairConfig()
 
 	let eventTypes
@@ -404,7 +411,7 @@ export async function init() {
 		trueEvents = removeBogusTennisEvents(events)
 		eventIds = trueEvents.map(event => event.event.id)
 
-		marketCatalogues = await getMarketCatalogues(eventIds, db)
+		marketCatalogues = await getMarketCatalogues(eventIds, db, 2)
 
 		marketIds = marketCatalogues.map(catalogue => catalogue.marketId)
 
