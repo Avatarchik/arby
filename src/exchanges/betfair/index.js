@@ -1,5 +1,5 @@
 const moment = require("moment")
-const { chunk, flattenDeep } = require("lodash")
+// const { chunk, flattenDeep } = require("lodash")
 
 const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
@@ -8,19 +8,19 @@ const { setExchangeBalance, getConfig } = require("../../db/helpers")
 const BetfairConfig = require("./config")
 const { handleApiException, checkForException, getException } = require("./exceptions")
 const {
-	MarketProjection,
-	PriceData,
-	OrderType,
-	Side,
-	PersistenceType,
-	OrderProjection,
-	EventTypes,
-	BettingOperations,
-	MarketBettingType,
-	MatchProjection
+	// MarketProjection,
+	// PriceData,
+	// OrderType,
+	// Side,
+	// PersistenceType,
+	// OrderProjection,
+	// EventTypes,
+	BettingOperations
+	// MarketBettingType,
+	// MatchProjection
 } = require("../../../lib/enums/exchanges/betfair/betting")
 const { AccountOperations } = require("../../../lib/enums/exchanges/betfair/account")
-const { buildFormattedEvents } = require("./format")
+// const { buildFormattedEvents } = require("./format")
 
 const BETTING = "Betting"
 const ACCOUNT = "Account"
@@ -78,33 +78,33 @@ async function getEventTypes() {
 	}
 }
 
-async function getMarketTypes(...args) {
-	const params = {
-		filter: {
-			eventTypeIds: args[0]
-		}
-	}
-	const funcName = getMarketTypes.name
-	const type = BETTING
+// async function getMarketTypes(...args) {
+// 	const params = {
+// 		filter: {
+// 			eventTypeIds: args[0]
+// 		}
+// 	}
+// 	const funcName = getMarketTypes.name
+// 	const type = BETTING
 
-	let response
+// 	let response
 
-	try {
-		response = await bettingApi.listMarketTypes(params)
+// 	try {
+// 		response = await bettingApi.listMarketTypes(params)
 
-		checkForException(response, BettingOperations.LIST_MARKET_TYPES, type)
+// 		checkForException(response, BettingOperations.LIST_MARKET_TYPES, type)
 
-		return response.data.result
-	} catch (err) {
-		throw getException({
-			err,
-			params,
-			type,
-			funcName,
-			args
-		})
-	}
-}
+// 		return response.data.result
+// 	} catch (err) {
+// 		throw getException({
+// 			err,
+// 			params,
+// 			type,
+// 			funcName,
+// 			args
+// 		})
+// 	}
+// }
 
 async function getEvents(...args) {
 	const gap = moment.duration(2, "hours")
@@ -143,119 +143,119 @@ async function getEvents(...args) {
 	}
 }
 
-async function getMarketCatalogues(eventIds, db, toChunk) {
-	const type = BETTING
-	const funcName = getMarketCatalogues.name
-	// If there is an error of TOO_MUCH_DATA, lower the amount of size
-	const idChunks = chunk(eventIds, toChunk)
+// async function getMarketCatalogues(eventIds, db, toChunk) {
+// 	const type = BETTING
+// 	const funcName = getMarketCatalogues.name
+// 	// If there is an error of TOO_MUCH_DATA, lower the amount of size
+// 	const idChunks = chunk(eventIds, toChunk)
 
-	let params = {
-		filter: {},
-		marketProjection: [
-			MarketProjection.EVENT_TYPE.val,
-			MarketProjection.EVENT.val,
-			MarketProjection.MARKET_START_TIME.val,
-			MarketProjection.MARKET_DESCRIPTION.val,
-			MarketProjection.RUNNER_DESCRIPTION.val
-		],
-		maxResults: 1000
-	}
-	let response
-	let marketCatalogues = []
-	let marketCataloguePromises
-	let config
+// 	let params = {
+// 		filter: {},
+// 		marketProjection: [
+// 			MarketProjection.EVENT_TYPE.val,
+// 			MarketProjection.EVENT.val,
+// 			MarketProjection.MARKET_START_TIME.val,
+// 			MarketProjection.MARKET_DESCRIPTION.val,
+// 			MarketProjection.RUNNER_DESCRIPTION.val
+// 		],
+// 		maxResults: 1000
+// 	}
+// 	let response
+// 	let marketCatalogues = []
+// 	let marketCataloguePromises
+// 	let config
 
-	try {
-		config = await getConfig(db)
-		params.filter.marketBettingTypes = [
-			...(config.betOnOdds ? [MarketBettingType.ODDS.val] : []),
-			...(config.betOnSpread ? [MarketBettingType.LINE.val] : []),
-			...(config.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-			...(config.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
-		]
+// 	try {
+// 		config = await getConfig(db)
+// 		params.filter.marketBettingTypes = [
+// 			...(config.betOnOdds ? [MarketBettingType.ODDS.val] : []),
+// 			...(config.betOnSpread ? [MarketBettingType.LINE.val] : []),
+// 			...(config.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+// 			...(config.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+// 		]
 
-		console.time("market-catalogues")
+// 		console.time("market-catalogues")
 
-		// I attempted the commented out method below in an attempt to make all calls asynchronous and, hopefully, make the process faster
-		// However, when doing this, I was returned with the error code of 'TOO_MUCH_DATA' everytime so too many requests per second?
-		//
-		// marketCataloguePromises = idChunks.map(ids => {
-		//     params.filter.events = ids;
+// 		// I attempted the commented out method below in an attempt to make all calls asynchronous and, hopefully, make the process faster
+// 		// However, when doing this, I was returned with the error code of 'TOO_MUCH_DATA' everytime so too many requests per second?
+// 		//
+// 		// marketCataloguePromises = idChunks.map(ids => {
+// 		//     params.filter.events = ids;
 
-		//     return bettingApi.listMarketCatalogue(params);
-		// });
+// 		//     return bettingApi.listMarketCatalogue(params);
+// 		// });
 
-		// marketCatalogues = await Promise.all(marketCataloguePromises);
-		for (let ids of idChunks) {
-			params.filter.eventIds = ids
+// 		// marketCatalogues = await Promise.all(marketCataloguePromises);
+// 		for (let ids of idChunks) {
+// 			params.filter.eventIds = ids
 
-			response = await bettingApi.listMarketCatalogue(params)
+// 			response = await bettingApi.listMarketCatalogue(params)
 
-			checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type)
-			// getMarketBooks(response.data.result);
+// 			checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type)
+// 			// getMarketBooks(response.data.result);
 
-			marketCatalogues.push(response.data.result)
-		}
+// 			marketCatalogues.push(response.data.result)
+// 		}
 
-		console.timeEnd("market-catalogues")
-		return flattenDeep(marketCatalogues)
-	} catch (err) {
-		switch (err.code) {
-			case "TOO_MUCH_DATA":
-				return getMarketCatalogues(eventIds, db, toChunk - 1)
-			default:
-				throw getException({
-					err,
-					params,
-					type,
-					funcName
-				})
-		}
-	}
-}
+// 		console.timeEnd("market-catalogues")
+// 		return flattenDeep(marketCatalogues)
+// 	} catch (err) {
+// 		switch (err.code) {
+// 			case "TOO_MUCH_DATA":
+// 				return getMarketCatalogues(eventIds, db, toChunk - 1)
+// 			default:
+// 				throw getException({
+// 					err,
+// 					params,
+// 					type,
+// 					funcName
+// 				})
+// 		}
+// 	}
+// }
 
-async function getMarketBooks(marketIds) {
-	const type = BETTING
-	const funcName = getMarketBooks.name
-	// If there is an error of TOO_MUCH_DATA, lower the amount of size
-	// The number of results you get back will be the same number of markets you put in
-	const idChunks = chunk(marketIds, 40)
+// async function getMarketBooks(marketIds) {
+// 	const type = BETTING
+// 	const funcName = getMarketBooks.name
+// 	// If there is an error of TOO_MUCH_DATA, lower the amount of size
+// 	// The number of results you get back will be the same number of markets you put in
+// 	const idChunks = chunk(marketIds, 40)
 
-	let params = {
-		priceProjection: {
-			priceData: [PriceData.EX_BEST_OFFERS.val]
-		},
-		orderProjection: OrderProjection.EXECUTABLE.val,
-		matchProjection: MatchProjection.ROLLED_UP_BY_AVG_PRICE.val
-	}
-	let response
-	let marketBooks = []
+// 	let params = {
+// 		priceProjection: {
+// 			priceData: [PriceData.EX_BEST_OFFERS.val]
+// 		},
+// 		orderProjection: OrderProjection.EXECUTABLE.val,
+// 		matchProjection: MatchProjection.ROLLED_UP_BY_AVG_PRICE.val
+// 	}
+// 	let response
+// 	let marketBooks = []
 
-	// function timeout(ms) {
-	// 	return new Promise(resolve => setTimeout(resolve, ms))
-	// }
+// 	// function timeout(ms) {
+// 	// 	return new Promise(resolve => setTimeout(resolve, ms))
+// 	// }
 
-	try {
-		for (const ids of idChunks) {
-			// await timeout(500)
-			params.marketIds = ids
+// 	try {
+// 		for (const ids of idChunks) {
+// 			// await timeout(500)
+// 			params.marketIds = ids
 
-			response = await bettingApi.listMarketBook(params)
+// 			response = await bettingApi.listMarketBook(params)
 
-			checkForException(response, BettingOperations.LIST_MARKET_BOOK, type)
+// 			checkForException(response, BettingOperations.LIST_MARKET_BOOK, type)
 
-			marketBooks.push(response.data.result)
-		}
-		return flattenDeep(marketBooks)
-	} catch (err) {
-		throw getException({
-			err,
-			params,
-			type,
-			funcName
-		})
-	}
-}
+// 			marketBooks.push(response.data.result)
+// 		}
+// 		return flattenDeep(marketBooks)
+// 	} catch (err) {
+// 		throw getException({
+// 			err,
+// 			params,
+// 			type,
+// 			funcName
+// 		})
+// 	}
+// }
 
 // async function placeBets(markets, funds) {
 // 	const marketsWithAllocatedFunds = helpers.allocateFundsPerRunner(markets, funds)
@@ -337,15 +337,15 @@ exports.betfairInit = async function(db) {
 
 	let eventTypes
 	let eventTypeIds
-	let eventIds
+	// let eventIds
 	let events
 	let trueEvents
-	let marketCatalogues
-	let marketIds
-	let marketBooks
-	let marketBookIds
-	let marketCataloguesWithBooks
-	let marketTypes
+	// let marketCatalogues
+	// let marketIds
+	// let marketBooks
+	// let marketBookIds
+	// let marketCataloguesWithBooks
+	// let marketTypes
 
 	try {
 		betfairInstance.initAxios()
@@ -362,23 +362,25 @@ exports.betfairInit = async function(db) {
 
 		events = await getEvents(eventTypeIds)
 		trueEvents = removeBogusTennisEvents(events)
-		eventIds = trueEvents.map(event => event.event.id)
 
-		marketCatalogues = await getMarketCatalogues(eventIds, db, 2)
+		return trueEvents
+		// eventIds = trueEvents.map(event => event.event.id)
 
-		marketIds = marketCatalogues.map(catalogue => catalogue.marketId)
+		// marketCatalogues = await getMarketCatalogues(eventIds, db, 2)
 
-		marketBooks = await getMarketBooks(marketIds)
-		marketBookIds = marketBooks.map(book => book.marketId)
+		// marketIds = marketCatalogues.map(catalogue => catalogue.marketId)
+
+		// marketBooks = await getMarketBooks(marketIds)
+		// marketBookIds = marketBooks.map(book => book.marketId)
 
 		// For some reason, 'listMarketBook' sometimes returns fewer/missing markets that are returned by 'listMarketCatalogue'
 		// For this reason, we filter out the catalogues that do not have a market book associated with them
 		// Reference: https://forum.developer.betfair.com/forum/sports-exchange-api/exchange-api/27617-listmarketbook-and-listmarketcatalogue-returning-different-amounts-of-data
-		marketCataloguesWithBooks = marketCatalogues.filter(catalogue => {
-			return marketBookIds.includes(catalogue.marketId)
-		})
+		// marketCataloguesWithBooks = marketCatalogues.filter(catalogue => {
+		// 	return marketBookIds.includes(catalogue.marketId)
+		// })
 
-		return buildFormattedEvents(marketCataloguesWithBooks, marketBooks)
+		// return buildFormattedEvents(marketCataloguesWithBooks, marketBooks)
 	} catch (err) {
 		handleApiException(err)
 	}

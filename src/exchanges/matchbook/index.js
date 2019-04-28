@@ -5,7 +5,7 @@ const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
 const MatchbookConfig = require("./config")
 const { buildFormattedEvents } = require("./format")
-const { setBalance } = require("../../db/helpers")
+const { setBalance, getConfig } = require("../../db/helpers")
 
 let accountsApi
 let bettingApi
@@ -17,22 +17,6 @@ async function setAccountFunds(db) {
 		response = await accountsApi.getBalance()
 
 		await setBalance(db, response.data.balance, "matchbook")
-
-		await db.collection("config").updateOne(
-			{
-				sportsToUse: {
-					$exists: true
-				}
-			},
-			{
-				$set: {
-					matchbookBalance: response.data.balance
-				}
-			},
-			{
-				upsert: false
-			}
-		)
 	} catch (err) {
 		console.error(err)
 	}
@@ -82,20 +66,8 @@ async function getEvents(sportIds, db) {
 	let config
 
 	try {
-		config = await db
-			.collection("config")
-			.find(
-				{
-					sportsToUse: {
-						$exists: true
-					}
-				},
-				{
-					defaultCurrency: 1
-				}
-			)
-			.toArray()
-		params.currency = config[0].defaultCurrency
+		config = await getConfig(db)
+		params.currency = config.defaultCurrency
 		response = await bettingApi.getEvents(params)
 
 		return response.data.events
@@ -105,35 +77,21 @@ async function getEvents(sportIds, db) {
 }
 
 async function getSportIds(sports, db) {
-	const config = await db
-		.collection("config")
-		.find(
-			{
-				sportsToUse: {
-					$exists: true
-				}
-			},
-			{
-				sportsToUse: 1
-			}
-		)
-		.toArray()
+	const config = await getConfig(db)
 
 	return sports
 		.filter(sport => {
-			return config[0].sportsToUse.includes(sport.name)
+			return config.sportsToUse.includes(sport.name)
 		})
 		.map(sport => sport.id)
 }
 
-exports.matchbookInit = async function() {
+exports.matchbookInit = async function(db) {
 	const matchbookInstance = new MatchbookConfig()
 
 	let sports
 	let sportsIds
 	let events
-	let client
-	let db
 
 	try {
 		matchbookInstance.initAxios()
@@ -142,20 +100,25 @@ exports.matchbookInit = async function() {
 		accountsApi = new AccountsApi()
 		bettingApi = new BettingApi()
 
-		client = await MongoClient.connect(process.env.DB_URL, {
-			useNewUrlParser: true
-		})
-		db = client.db(process.env.DB_NAME)
-
-		console.time("matchbook")
 		await setAccountFunds(db)
 		sports = await getSports()
 		sportsIds = await getSportIds(sports, db)
 
 		events = await getEvents(sportsIds, db)
 
-		console.timeEnd("matchbook")
-		return buildFormattedEvents(events)
+		return events.map(event => {
+			const metaTags = event["meta-tags"]
+			const countryTag = metaTags.find(tag => tag.type === "COUNTRY")
+			const eventTypeTag = metaTags.find(tag => tag.type === "SPORT")
+
+			return {
+				id: event.id || "-",
+				name: event.name || "-",
+				startTime: event.start,
+				eventType: eventTypeTag ? eventTypeTag.name : "-",
+				country: countryTag ? getCode(countryTag.name) : "-"
+			}
+		})
 	} catch (err) {
 		console.log(err)
 	}

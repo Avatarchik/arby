@@ -3,6 +3,28 @@ const { findBestMatch } = require("string-similarity")
 const { MongoClient } = require("mongodb")
 const schedule = require("node-schedule")
 const cluster = require("cluster")
+const { flattenDeep } = require("lodash")
+
+const BettingApi = require("../../exchanges/betfair/apis/betting")
+const AccountsApi = require("../../exchanges/betfair/apis/account")
+const { getConfig } = require("../../db/helpers")
+const { checkForException, getException } = require("../../exchanges/betfair/exceptions")
+const {
+	MarketProjection,
+	PriceData,
+	OrderType,
+	Side,
+	PersistenceType,
+	OrderProjection,
+	EventTypes,
+	BettingOperations,
+	MarketBettingType,
+	MatchProjection
+} = require("../../../lib/enums/exchanges/betfair/betting")
+const { AccountOperations } = require("../../../lib/enums/exchanges/betfair/account")
+
+const BETTING = "Betting"
+const ACCOUNT = "Account"
 
 const ArbTable = require("../../../lib/arb-table")
 const { getConfig } = require("../../db/helpers")
@@ -757,7 +779,7 @@ exports.initArbitrage = async function(exchangesEvents) {
 	}
 }
 
-async function getMarketCatalogue(db) {
+async function getMarketCatalogues(db, bettingApi) {
 	const type = BETTING
 	const funcName = getMarketCatalogues.name
 
@@ -800,7 +822,7 @@ async function getMarketCatalogue(db) {
 	} catch (err) {
 		switch (err.code) {
 			case "TOO_MUCH_DATA":
-				return getMarketCatalogue(db)
+				return getMarketCatalogues(db)
 			default:
 				throw getException({
 					err,
@@ -812,8 +834,39 @@ async function getMarketCatalogue(db) {
 	}
 }
 
+async function getMarketBooks(db, catalogues, bettingApi) {
+	const type = BETTING
+	const funcName = getMarketBooks.name
+
+	const params = {
+		marketIds: catalogues.map(catalogue => catalogue.marketId),
+		priceProjection: {
+			priceData: [PriceData.EX_BEST_OFFERS.val]
+		},
+		orderProjection: OrderProjection.EXECUTABLE.val,
+		matchProjection: MatchProjection.ROLLED_UP_BY_AVG_PRICE.val
+	}
+	let response
+
+	try {
+		response = await bettingApi.listMarketBook(params)
+
+		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type)
+		return response.data.result
+	} catch (err) {
+		throw getException({
+			err,
+			params,
+			type,
+			funcName
+		})
+	}
+}
+
 async function getMarkets_betfair(db) {
-	const marketCatalogue = await getMarketCatalogue(db)
+	const bettingApi = new BettingApi()
+	const marketCatalogues = await getMarketCatalogues(db, bettingApi)
+	const marketBooks = await getMarketBooks(db, marketCatalogues, bettingApi)
 }
 
 async function getMarkets_matchbook() {}
