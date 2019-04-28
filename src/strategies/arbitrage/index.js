@@ -1,8 +1,11 @@
 const { flattenDeep } = require("lodash")
 const { findBestMatch } = require("string-similarity")
 const { MongoClient } = require("mongodb")
+const schedule = require("node-schedule")
+const cluster = require("cluster")
 
 const ArbTable = require("../../../lib/arb-table")
+const { getConfig } = require("../../db/helpers")
 
 function getExchangesToCompare_findEvents(exchanges, exchangeBeingChecked) {
 	return exchanges.filter(exchange => {
@@ -38,6 +41,10 @@ function countryMatch(eventToCheck, eventToCompare) {
 		return eventToCompare.country.toUpperCase() === eventToCheck.country.toUpperCase()
 	}
 	return true
+}
+
+function startTimeMatch(eventToCheck, eventToCompare) {
+	return eventToCheck.startTime === eventToCompare.startTime
 }
 
 function eventTypeMatch(eventToCheck, eventToCompare) {
@@ -160,10 +167,14 @@ function findSameMarkets(matchedEvent, similarityThreshold) {
 // 	});
 // }
 
-function getEventsMatchingCountryAndType(compareEx, eventToCheck) {
+function filterEventsMatchingCriteria(compareEx, eventToCheck) {
 	return compareEx.events
 		.filter(eventToCompare => {
-			return countryMatch(eventToCheck, eventToCompare) && eventTypeMatch(eventToCheck, eventToCompare)
+			return (
+				countryMatch(eventToCheck, eventToCompare) &&
+				eventTypeMatch(eventToCheck, eventToCompare) &&
+				startTimeMatch(eventToCheck, eventToCompare)
+			)
 		})
 		.map(event => event.name)
 }
@@ -175,11 +186,11 @@ function getTrueEventMatch(eventCheck, matches) {
 function findSameEvents(exchanges) {
 	let exchangesToCompare
 	let eventRatings
-	let eventsMatchingCountryAndType
+	let eventsMatchingCriteria
 	let matchingEvent
 	let alternateMatches
 	let trueEventMatch
-	let eventMatch = {}
+	let eventMatch = []
 
 	try {
 		console.time("findSameEvents")
@@ -188,16 +199,19 @@ function findSameEvents(exchanges) {
 
 			if (exchangesToCompare.length) {
 				for (let eventToCheck of exchangeToCheck.events) {
-					eventMatch = {
-						[exchangeToCheck.name]: eventToCheck
-					}
+					eventMatch = [
+						{
+							exchange: exchangeToCheck.name,
+							event: eventToCheck
+						}
+					]
 
 					if (!eventToCheck.name.includes("(Best of 7)")) {
 						for (let exchangeToCompare of exchangesToCompare) {
-							eventsMatchingCountryAndType = getEventsMatchingCountryAndType(exchangeToCompare, eventToCheck)
+							eventsMatchingCriteria = filterEventsMatchingCriteria(exchangeToCompare, eventToCheck)
 
-							if (eventsMatchingCountryAndType && eventsMatchingCountryAndType.length) {
-								eventRatings = findBestMatch(eventToCheck.name, eventsMatchingCountryAndType)
+							if (eventsMatchingCriteria && eventsMatchingCriteria.length) {
+								eventRatings = findBestMatch(eventToCheck.name, eventsMatchingCriteria)
 
 								if (eventRatings.bestMatch.rating >= 0.3) {
 									alternateMatches = eventRatings.ratings.filter(rating => {
@@ -212,8 +226,10 @@ function findSameEvents(exchanges) {
 										return event.name === (trueEventMatch || eventRatings.bestMatch.target)
 									})
 
-									eventMatch[exchangeToCompare.name] = matchingEvent
-
+									eventMatch.push({
+										exchange: exchangeToCompare.name,
+										event: matchingEvent
+									})
 									exchangeToCompare.events = exchangeToCompare.events.filter(event => event.id !== matchingEvent.id)
 									exchangeToCheck.events = exchangeToCheck.events.filter(event => event.id !== eventToCheck.id)
 								} else {
@@ -225,7 +241,7 @@ function findSameEvents(exchanges) {
 								}
 							}
 						}
-						if (Object.keys(eventMatch).length > 1) {
+						if (eventMatch.length > 1) {
 							matches.push(eventMatch)
 						}
 					}
@@ -633,6 +649,22 @@ function removeContradictingArbs(eventsWithArbs) {
 	})
 }
 
+function setUpSchedules(matchedEvents) {
+	let worker
+
+	for (let matchedEvent of matchedEvents) {
+		schedule.scheduleJob(new Date(matchedEvent.startTime), () => {
+			worker = cluster.fork({
+				workerId: matchedEvent._id.toString(),
+				country: matchedEvent.country,
+				eventType: matchedEvent.eventType,
+				exchanges: JSON.stringify(matchedEvent.exchanges),
+				startTime: matchedEvent.startTime
+			})
+		})
+	}
+}
+
 exports.initArbitrage = async function(exchangesEvents) {
 	const matchedEvents = findSameEvents(exchangesEvents)
 
@@ -644,67 +676,162 @@ exports.initArbitrage = async function(exchangesEvents) {
 	let fundsPerArb
 	let allMarketsHaveRunners
 	let hasTwoOrLessRunners
+	let formattedMatchedEvents
+	let storedEvents
 
-	if (matchedEvents.length) {
-		eventsWithMatchedMarkets = matchedEvents
-			.map(event => {
-				// This threshold (0.6) is quite high considering am also taking the market type into account
-				// This is because any lower and Asian Single Lines matched with Asian Double Lines
-				// In the future, I could split these into 2 separate market types but for now...no
+	try {
+		if (matchedEvents.length) {
+			formattedMatchedEvents = matchedEvents.map(matchedEvent => {
 				return {
-					...event,
-					matchedMarkets: findSameMarkets(event, 0.6)
+					startTime: matchedEvent[0].event.startTime,
+					eventType: matchedEvent[0].event.eventType,
+					country: matchedEvent.find(exEvent => exEvent.event.country !== "-").event.country,
+					exchanges: matchedEvent.map(exEvent => {
+						return {
+							exchange: exEvent.exchange,
+							eventId: exEvent.event.id
+						}
+					})
 				}
 			})
-			.filter(event => event.matchedMarkets.length)
 
-		if (eventsWithMatchedMarkets.length) {
-			eventsWithArbs = flattenDeep(
-				eventsWithMatchedMarkets
-					.map(event => {
-						return event.matchedMarkets
-							.map(market => {
-								allMarketsHaveRunners = Object.keys(market).every(m => {
-									return market[m].runners.length
-								})
+			storedEvents = await storeMatchedEvents(formattedMatchedEvents)
+			return storedEvents
 
-								if (allMarketsHaveRunners) {
-									hasTwoOrLessRunners = Object.keys(market).every(m => {
-										return market[m].runners.length <= 2
-									})
-									foundArbs = findArbs(market, Object.keys(market))
-									marketArbType = hasTwoOrLessRunners ? "BackBack" : "BackLay"
+			// eventsWithMatchedMarkets = matchedEvents
+			// 	.map(event => {
+			// 		// This threshold (0.6) is quite high considering am also taking the market type into account
+			// 		// This is because any lower and Asian Single Lines matched with Asian Double Lines
+			// 		// In the future, I could split these into 2 separate market types but for now...no
+			// 		return {
+			// 			...event,
+			// 			matchedMarkets: findSameMarkets(event, 0.6)
+			// 		}
+			// 	})
 
-									if (foundArbs[marketArbType].length) {
-										return foundArbs[marketArbType].map(arb => {
-											return `${marketArbType}||${arb.difference}||${arb.outcome1.ex}||${arb.outcome1.market}||${
-												arb.outcome1.runner.id
-											}||${arb.outcome1.runner.name}||${arb.outcome2.ex}||${arb.outcome2.market}||${arb.outcome2.runner.id}||${
-												arb.outcome2.runner.name
-											}`
-										})
-									}
-								}
-							})
-							.filter(market => {
-								if (market) {
-									console.log("debug")
-								}
-								return market && market.length
-							})
+			// if (eventsWithMatchedMarkets.length) {
+			// 	eventsWithArbs = flattenDeep(
+			// 		eventsWithMatchedMarkets
+			// 			.map(event => {
+			// 				return event.matchedMarkets
+			// 					.map(market => {
+			// 						allMarketsHaveRunners = Object.keys(market).every(m => {
+			// 							return market[m].runners.length
+			// 						})
+
+			// 						if (allMarketsHaveRunners) {
+			// 							hasTwoOrLessRunners = Object.keys(market).every(m => {
+			// 								return market[m].runners.length <= 2
+			// 							})
+			// 							foundArbs = findArbs(market, Object.keys(market))
+			// 							marketArbType = hasTwoOrLessRunners ? "BackBack" : "BackLay"
+
+			// 							if (foundArbs[marketArbType].length) {
+			// 								return foundArbs[marketArbType].map(arb => {
+			// 									return `${marketArbType}||${arb.difference}||${arb.outcome1.ex}||${arb.outcome1.market}||${
+			// 										arb.outcome1.runner.id
+			// 										}||${arb.outcome1.runner.name}||${arb.outcome2.ex}||${arb.outcome2.market}||${arb.outcome2.runner.id}||${
+			// 										arb.outcome2.runner.name
+			// 										}`
+			// 								})
+			// 							}
+			// 						}
+			// 					})
+			// 					.filter(market => market && market.length)
+			// 			})
+			// 			.filter(event => event && event.length)
+			// 	)
+
+			// 	if (eventsWithArbs.length) {
+			// 		nonConflictingArbs = removeContradictingArbs(eventsWithArbs)
+
+			// 		fundsPerArb = await allocateFundsPerArb(nonConflictingArbs)
+
+			// 		eventsWithArbs.forEach(event => {
+			// 			placeArbs(event)
+			// 		})
+			// }
+		}
+	} catch (err) {
+		console.error(err)
+	}
+}
+
+async function getMarketCatalogue(db) {
+	const type = BETTING
+	const funcName = getMarketCatalogues.name
+
+	let params = {
+		filter: {
+			eventIds: [
+				JSON.parse(process.env.EXCHANGES)
+					.find(exchange => {
+						return exchange.name === "betfair"
 					})
-					.filter(event => event && event.length)
-			)
+					.id.toString()
+			]
+		},
+		marketProjection: [
+			MarketProjection.EVENT_TYPE.val,
+			MarketProjection.EVENT.val,
+			MarketProjection.MARKET_START_TIME.val,
+			MarketProjection.MARKET_DESCRIPTION.val,
+			MarketProjection.RUNNER_DESCRIPTION.val
+		],
+		maxResults: 1000
+	}
+	let response
+	let config
 
-			if (eventsWithArbs.length) {
-				nonConflictingArbs = removeContradictingArbs(eventsWithArbs)
+	try {
+		config = await getConfig(db)
+		params.filter.marketBettingTypes = [
+			...(config.betOnOdds ? [MarketBettingType.ODDS.val] : []),
+			...(config.betOnSpread ? [MarketBettingType.LINE.val] : []),
+			...(config.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+			...(config.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+		]
 
-				fundsPerArb = await allocateFundsPerArb(nonConflictingArbs)
+		response = await bettingApi.listMarketCatalogue(params)
 
-				eventsWithArbs.forEach(event => {
-					placeArbs(event)
+		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type)
+
+		return response.data.result
+	} catch (err) {
+		switch (err.code) {
+			case "TOO_MUCH_DATA":
+				return getMarketCatalogue(db)
+			default:
+				throw getException({
+					err,
+					params,
+					type,
+					funcName
 				})
-			}
 		}
 	}
+}
+
+async function getMarkets_betfair(db) {
+	const marketCatalogue = await getMarketCatalogue(db)
+}
+
+async function getMarkets_matchbook() {}
+
+exports.watchEvent = async function(db) {
+	const exchangesInvolved = JSON.parse(process.env.EXCHANGES).map(exchange => exchange.name)
+	const that = this
+
+	setInterval(() => {
+		Promise.all(
+			exchangesInvolved.map(async exchangeName => {
+				await that[`getMarkets_${exchangeName}`](db)
+			})
+		)
+			.then(values => {})
+			.catch(err => {
+				console.error(err)
+				process.exit(1)
+			})
+	}, 300000) // Poll the exchanges every 5 minutes
 }

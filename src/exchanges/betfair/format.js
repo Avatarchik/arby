@@ -219,6 +219,7 @@ exports.buildFormattedEvents = function(catalogues, books) {
 				id: markets[0].event.id || "-",
 				name: markets[0].event.name || "-",
 				eventType: markets[0].eventType.name || "-",
+				startTime: markets[0].event.openDate,
 				// competitors: getCompetitors(markets[0].eventType.name, markets, "betfair"),
 				country: markets[0].event.countryCode || "-",
 				markets: formatMarkets(markets).map(market => {

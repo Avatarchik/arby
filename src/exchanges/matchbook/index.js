@@ -5,6 +5,7 @@ const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
 const MatchbookConfig = require("./config")
 const { buildFormattedEvents } = require("./format")
+const { setBalance } = require("../../db/helpers")
 
 let accountsApi
 let bettingApi
@@ -14,6 +15,8 @@ async function setAccountFunds(db) {
 
 	try {
 		response = await accountsApi.getBalance()
+
+		await setBalance(db, response.data.balance, "matchbook")
 
 		await db.collection("config").updateOne(
 			{
@@ -95,7 +98,6 @@ async function getEvents(sportIds, db) {
 		params.currency = config[0].defaultCurrency
 		response = await bettingApi.getEvents(params)
 
-		console.log(JSON.stringify(response.data.events[0]))
 		return response.data.events
 	} catch (err) {
 		console.error(err)

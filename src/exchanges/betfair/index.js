@@ -1,9 +1,9 @@
 const moment = require("moment")
 const { chunk, flattenDeep } = require("lodash")
-const { MongoClient } = require("mongodb")
 
 const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
+const { setExchangeBalance, getConfig } = require("../../db/helpers")
 // import MarketFilter from "./betting/marketFilter";
 const BetfairConfig = require("./config")
 const { handleApiException, checkForException, getException } = require("./exceptions")
@@ -42,18 +42,7 @@ async function setAccountFunds(db) {
 
 		checkForException(response, AccountOperations.GET_ACCOUNT_FUNDS, type)
 
-		await db.collection("config").updateOne(
-			{
-				sportsToUse: {
-					$exists: true
-				}
-			},
-			{
-				$set: {
-					betfairBalance: response.data.result.availableToBetBalance
-				}
-			}
-		)
+		await setExchangeBalance(db, response.data.result.availableToBetBalance, "betfair")
 	} catch (err) {
 		process.exit(1)
 		// throw getException({
@@ -177,27 +166,12 @@ async function getMarketCatalogues(eventIds, db, toChunk) {
 	let config
 
 	try {
-		config = await db
-			.collection("config")
-			.find(
-				{
-					sportsToUse: {
-						$exists: true
-					}
-				},
-				{
-					betOnOdds: 1,
-					betOnSpread: 1,
-					betOnAsianHandicapSingleLine: 1,
-					betOnAsianHandicapDoubleLine: 1
-				}
-			)
-			.toArray()
+		config = await getConfig(db)
 		params.filter.marketBettingTypes = [
-			...(config[0].betOnOdds ? [MarketBettingType.ODDS.val] : []),
-			...(config[0].betOnSpread ? [MarketBettingType.LINE.val] : []),
-			...(config[0].betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-			...(config[0].betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+			...(config.betOnOdds ? [MarketBettingType.ODDS.val] : []),
+			...(config.betOnSpread ? [MarketBettingType.LINE.val] : []),
+			...(config.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+			...(config.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
 		]
 
 		console.time("market-catalogues")
@@ -224,7 +198,6 @@ async function getMarketCatalogues(eventIds, db, toChunk) {
 		}
 
 		console.timeEnd("market-catalogues")
-		console.log(JSON.stringify(marketCatalogues[0][0]))
 		return flattenDeep(marketCatalogues)
 	} catch (err) {
 		switch (err.code) {
@@ -273,7 +246,6 @@ async function getMarketBooks(marketIds) {
 
 			marketBooks.push(response.data.result)
 		}
-		console.log(JSON.stringify(marketBooks[0][0]))
 		return flattenDeep(marketBooks)
 	} catch (err) {
 		throw getException({
@@ -333,23 +305,11 @@ async function getMarketBooks(marketIds) {
 // }
 
 async function getEventTypeIds(eventTypes, db) {
-	const config = await db
-		.collection("config")
-		.find(
-			{
-				sportsToUse: {
-					$exists: true
-				}
-			},
-			{
-				sportsToUse: 1
-			}
-		)
-		.toArray()
+	const config = await getConfig(db)
 
 	return eventTypes
 		.filter(event => {
-			return config[0].sportsToUse.includes(event.eventType.name)
+			return config.sportsToUse.includes(event.eventType.name)
 		})
 		.map(event => event.eventType.id)
 }
@@ -372,7 +332,7 @@ function removeBogusTennisEvents(events) {
 	})
 }
 
-exports.betfairInit = async function() {
+exports.betfairInit = async function(db) {
 	const betfairInstance = new BetfairConfig()
 
 	let eventTypes
@@ -385,8 +345,6 @@ exports.betfairInit = async function() {
 	let marketBooks
 	let marketBookIds
 	let marketCataloguesWithBooks
-	let client
-	let db
 	let marketTypes
 
 	try {
@@ -395,11 +353,6 @@ exports.betfairInit = async function() {
 
 		accountApi = new AccountsApi()
 		bettingApi = new BettingApi()
-
-		client = await MongoClient.connect(process.env.DB_URL, {
-			useNewUrlParser: true
-		})
-		db = client.db(process.env.DB_NAME)
 
 		console.time("betfair")
 		await setAccountFunds(db)

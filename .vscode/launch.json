@@ -10,6 +10,7 @@
 			"name": "Debug",
 			"runtimeExecutable": "npm",
 			"autoAttachChildProcesses": true,
+			"program": null,
 			"runtimeArgs": ["run-script", "start:dev"],
 			"port": 9229
 		}

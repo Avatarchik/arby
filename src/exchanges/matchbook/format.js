@@ -88,10 +88,7 @@ function isAsianQuarterLine(name) {
 }
 
 function isUnderOverMarket(market) {
-	return (
-		(market.runners[0].name.toUpperCase().includes("OVER") || market.runners[0].name.toUpperCase().includes("UNDER")) &&
-		(market.runners[1].name.toUpperCase().includes("OVER") || market.runners[1].name.toUpperCase().includes("UNDER"))
-	)
+	return market.runners[0].name.toUpperCase().includes("OVER") || market.runners[0].name.toUpperCase().includes("UNDER")
 }
 
 function getMarketType(market) {
@@ -175,44 +172,49 @@ function formatMarkets(markets) {
 }
 
 exports.buildFormattedEvents = function(events) {
-	return events
-		.map(event => {
-			const metaTags = event["meta-tags"]
-			const countryTag = metaTags.find(tag => tag.type === "COUNTRY")
-			const eventTypeTag = metaTags.find(tag => tag.type === "SPORT")
+	try {
+		return events
+			.map(event => {
+				const metaTags = event["meta-tags"]
+				const countryTag = metaTags.find(tag => tag.type === "COUNTRY")
+				const eventTypeTag = metaTags.find(tag => tag.type === "SPORT")
 
-			// if (countryTag && getCode(countryTag.name) === undefined) {
-			// 	console.log(countryTag.name)
-			// }
-			// if (!countryTag) {
-			// 	console.log(event)
-			// }
+				// if (countryTag && getCode(countryTag.name) === undefined) {
+				// 	console.log(countryTag.name)
+				// }
+				// if (!countryTag) {
+				// 	console.log(event)
+				// }
 
-			return {
-				id: event.id || "-",
-				name: event.name || "-",
-				// competitors: getCompetitors(eventTypeTag.name, event.markets, "matchbook"),
-				eventType: eventTypeTag ? eventTypeTag.name : "-",
-				country: countryTag ? getCode(countryTag.name) : "-",
-				markets: formatMarkets(event.markets).map(market => {
-					return {
-						id: market.id || "-",
-						name: getMarketName(market),
-						type: getMarketType(market),
-						runners: market.runners.map(runner => {
-							return {
-								id: runner.id || "-",
-								name: runner.name || "-",
-								handicap: getRunnerHandicap(market, runner.name),
-								prices: {
-									back: runner.prices.filter(price => price.side === "back").map(price => price.odds),
-									lay: runner.prices.filter(price => price.side === "lay").map(price => price.odds)
+				return {
+					id: event.id || "-",
+					name: event.name || "-",
+					startTime: event.start,
+					// competitors: getCompetitors(eventTypeTag.name, event.markets, "matchbook"),
+					eventType: eventTypeTag ? eventTypeTag.name : "-",
+					country: countryTag ? getCode(countryTag.name) : "-",
+					markets: formatMarkets(event.markets).map(market => {
+						return {
+							id: market.id || "-",
+							name: getMarketName(market),
+							type: getMarketType(market),
+							runners: market.runners.map(runner => {
+								return {
+									id: runner.id || "-",
+									name: runner.name || "-",
+									handicap: getRunnerHandicap(market, runner.name),
+									prices: {
+										back: runner.prices.filter(price => price.side === "back").map(price => price.odds),
+										lay: runner.prices.filter(price => price.side === "lay").map(price => price.odds)
+									}
 								}
-							}
-						})
-					}
-				})
-			}
-		})
-		.filter(event => event.markets.length)
+							})
+						}
+					})
+				}
+			})
+			.filter(event => event.markets && event.markets.length)
+	} catch (err) {
+		console.error(err)
+	}
 }
