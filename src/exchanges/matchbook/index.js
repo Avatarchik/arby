@@ -1,14 +1,18 @@
 const moment = require("moment")
 const { MongoClient } = require("mongodb")
+const { getCode, overwrite } = require("country-list")
 
 const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
 const MatchbookConfig = require("./config")
 const { buildFormattedEvents } = require("./format")
-const { setBalance, getConfig } = require("../../db/helpers")
+const { setExchangeBalance, getConfig } = require("../../db/helpers")
+const countryListOverrides = require("../../../lib/country-list-overrides")
 
 let accountsApi
 let bettingApi
+
+overwrite(countryListOverrides)
 
 async function setAccountFunds(db) {
 	let response
@@ -16,7 +20,7 @@ async function setAccountFunds(db) {
 	try {
 		response = await accountsApi.getBalance()
 
-		await setBalance(db, response.data.balance, "matchbook")
+		await setExchangeBalance(db, response.data.balance, "matchbook")
 	} catch (err) {
 		console.error(err)
 	}
@@ -67,7 +71,7 @@ async function getEvents(sportIds, db) {
 
 	try {
 		config = await getConfig(db)
-		params.currency = config.defaultCurrency
+		params.currency = config[0].defaultCurrency
 		response = await bettingApi.getEvents(params)
 
 		return response.data.events
@@ -81,9 +85,22 @@ async function getSportIds(sports, db) {
 
 	return sports
 		.filter(sport => {
-			return config.sportsToUse.includes(sport.name)
+			return config[0].sportsToUse.includes(sport.name)
 		})
 		.map(sport => sport.id)
+}
+
+function getCountryCode(event, tag) {
+	if (!tag) {
+		return "-"
+	}
+
+	const countryCode = getCode(tag.name)
+
+	if (!countryCode) {
+		return "-"
+	}
+	return countryCode
 }
 
 exports.matchbookInit = async function(db) {
@@ -116,7 +133,7 @@ exports.matchbookInit = async function(db) {
 				name: event.name || "-",
 				startTime: event.start,
 				eventType: eventTypeTag ? eventTypeTag.name : "-",
-				country: countryTag ? getCode(countryTag.name) : "-"
+				country: getCountryCode(event, countryTag)
 			}
 		})
 	} catch (err) {

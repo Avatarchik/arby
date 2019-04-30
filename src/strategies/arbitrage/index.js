@@ -1,9 +1,7 @@
-const { flattenDeep } = require("lodash")
 const { findBestMatch } = require("string-similarity")
 const { MongoClient } = require("mongodb")
 const schedule = require("node-schedule")
 const cluster = require("cluster")
-const { flattenDeep } = require("lodash")
 
 const BettingApi = require("../../exchanges/betfair/apis/betting")
 const AccountsApi = require("../../exchanges/betfair/apis/account")
@@ -27,7 +25,6 @@ const BETTING = "Betting"
 const ACCOUNT = "Account"
 
 const ArbTable = require("../../../lib/arb-table")
-const { getConfig } = require("../../db/helpers")
 
 function getExchangesToCompare_findEvents(exchanges, exchangeBeingChecked) {
 	return exchanges.filter(exchange => {
@@ -808,10 +805,10 @@ async function getMarketCatalogues(db, bettingApi) {
 	try {
 		config = await getConfig(db)
 		params.filter.marketBettingTypes = [
-			...(config.betOnOdds ? [MarketBettingType.ODDS.val] : []),
-			...(config.betOnSpread ? [MarketBettingType.LINE.val] : []),
-			...(config.betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-			...(config.betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
+			...(config[0].betOnOdds ? [MarketBettingType.ODDS.val] : []),
+			...(config[0].betOnSpread ? [MarketBettingType.LINE.val] : []),
+			...(config[0].betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
+			...(config[0].betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
 		]
 
 		response = await bettingApi.listMarketCatalogue(params)
@@ -863,28 +860,31 @@ async function getMarketBooks(db, catalogues, bettingApi) {
 	}
 }
 
+const getMarketFuncs = {
+	getMarkets_matchbook,
+	getMarkets_betfair
+}
+
 async function getMarkets_betfair(db) {
 	const bettingApi = new BettingApi()
 	const marketCatalogues = await getMarketCatalogues(db, bettingApi)
 	const marketBooks = await getMarketBooks(db, marketCatalogues, bettingApi)
 }
 
-async function getMarkets_matchbook() {}
+async function getMarkets_matchbook() {
+	console.log("here")
+}
 
-exports.watchEvent = async function(db) {
-	const exchangesInvolved = JSON.parse(process.env.EXCHANGES).map(exchange => exchange.name)
-	const that = this
+async function initInterval(exchanges, db) {
+	await Promise.all(
+		exchanges.map(async exchangeName => {
+			await getMarketFuncs[`getMarkets_${exchangeName}`](db)
+		}, this)
+	)
+}
 
-	setInterval(() => {
-		Promise.all(
-			exchangesInvolved.map(async exchangeName => {
-				await that[`getMarkets_${exchangeName}`](db)
-			})
-		)
-			.then(values => {})
-			.catch(err => {
-				console.error(err)
-				process.exit(1)
-			})
-	}, 300000) // Poll the exchanges every 5 minutes
+exports.watchEvent = function(db) {
+	const exchangesInvolved = JSON.parse(process.env.EXCHANGES).map(ex => ex.exchange)
+
+	setInterval(initInterval.bind(this)(exchangesInvolved, db), 300000) // Poll the exchanges every 5 minutes
 }

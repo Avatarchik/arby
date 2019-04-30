@@ -1,5 +1,5 @@
 const moment = require("moment")
-// const { chunk, flattenDeep } = require("lodash")
+const { chunk } = require("lodash")
 
 const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
@@ -140,6 +140,32 @@ async function getEvents(...args) {
 			funcName,
 			args
 		})
+	}
+}
+
+async function getMarketCatalogues(events) {
+	const chunkedEvents = chunk(events, 2)
+	const marketCatalogues = []
+
+	let params = {
+		marketProjection: ["EVENT_TYPE", "EVENT"],
+		maxResults: 1000
+	}
+	let response
+
+	try {
+		for await (let events of chunkedEvents) {
+			response = await bettingApi.listMarketCatalogue({
+				...params,
+				filter: {
+					eventIds: events.map(event => event.event.id)
+				}
+			})
+			marketCatalogues.push(...response.data.result)
+		}
+		return marketCatalogues
+	} catch (err) {
+		console.error(err)
 	}
 }
 
@@ -309,7 +335,7 @@ async function getEventTypeIds(eventTypes, db) {
 
 	return eventTypes
 		.filter(event => {
-			return config.sportsToUse.includes(event.eventType.name)
+			return config[0].sportsToUse.includes(event.eventType.name)
 		})
 		.map(event => event.eventType.id)
 }
@@ -340,7 +366,8 @@ exports.betfairInit = async function(db) {
 	// let eventIds
 	let events
 	let trueEvents
-	// let marketCatalogues
+	let marketCatalogues
+	let eventWithType
 	// let marketIds
 	// let marketBooks
 	// let marketBookIds
@@ -362,8 +389,19 @@ exports.betfairInit = async function(db) {
 
 		events = await getEvents(eventTypeIds)
 		trueEvents = removeBogusTennisEvents(events)
+		marketCatalogues = await getMarketCatalogues(trueEvents)
 
-		return trueEvents
+		return trueEvents.map(event => {
+			return {
+				id: event.event.id,
+				name: event.event.name,
+				startTime: event.event.openDate,
+				eventType: marketCatalogues.find(catalogue => {
+					return catalogue.event.id === event.event.id
+				}).eventType.name,
+				country: event.event.countryCode || "-"
+			}
+		})
 		// eventIds = trueEvents.map(event => event.event.id)
 
 		// marketCatalogues = await getMarketCatalogues(eventIds, db, 2)

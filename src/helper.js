@@ -7,6 +7,9 @@ function getTrueEventMatch(eventCheck, matches) {
 function countryMatch(eventToCheck, eventToCompare) {
 	// The results returned for countries are not reliable so, unless both exchanges have a country code linked to the event, check them
 	if (eventToCheck.country !== "-" && eventToCompare.country !== "-") {
+		if (!eventToCheck.country || !eventToCompare.country) {
+			console.log("debug")
+		}
 		return eventToCompare.country.toUpperCase() === eventToCheck.country.toUpperCase()
 	}
 	return true

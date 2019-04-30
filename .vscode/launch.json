@@ -7,12 +7,12 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "Debug",
-			"runtimeExecutable": "npm",
+			"name": "Launch",
 			"autoAttachChildProcesses": true,
-			"program": null,
-			"runtimeArgs": ["run-script", "start:dev"],
-			"port": 9229
+			"program": "${workspaceFolder}/index.js",
+			"env": {
+				"NODE_ENV": "development"
+			}
 		}
 	]
 }

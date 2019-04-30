@@ -6,6 +6,7 @@ const cors = require("cors")
 const chalk = require("chalk")
 const cluster = require("cluster")
 const schedule = require("node-schedule")
+const moment = require("moment")
 
 const { initWorker } = require("./cluster/worker")
 const initDb = require("./db/config")
@@ -22,6 +23,8 @@ let worker
 let matchbookEvents
 let betfairEvents
 let storedEvents
+let timeGap
+let noCountry
 
 initDb()
 	.then(db => {
@@ -56,10 +59,21 @@ initDb()
 							switch (message.bookie) {
 								case "BETFAIR":
 									betfairEvents = message.builtEvents
+									noCountry = betfairEvents.filter(event => !event.country)
+
+									if (noCountry.length) {
+										console.log("debug")
+									}
 									worker.kill()
 									break
 								case "MATCHBOOK":
 									matchbookEvents = message.builtEvents
+									noCountry = matchbookEvents.filter(event => !event.country)
+
+									if (noCountry.length) {
+										console.log("debug")
+									}
+
 									worker.kill()
 									break
 								default:
@@ -79,16 +93,44 @@ initDb()
 								])
 								storedEvents = await storeMatchedEvents(sameEvents, db)
 
-								for (let event of storedEvents) {
-									schedule.scheduleJob(new Date(event.startTime), () => {
-										cluster.fork({
-											OBJECT_ID: event._id.toString(),
-											COUNTRY: event.country,
-											EVENT_TYPE: event.eventType,
-											START_TIME: event.startTime,
-											EXCHANGES: JSON.stringify(event.exchanges)
-										})
-									})
+								if (process.env.NODE_ENV === "development") {
+									timeGap = moment.duration(10, "seconds")
+
+									schedule.scheduleJob(
+										moment()
+											.add(timeGap)
+											.format(),
+										() => {
+											cluster.fork({
+												OBJECT_ID: storedEvents[0]._id.toString(),
+												COUNTRY: storedEvents[0].country,
+												EVENT_TYPE: storedEvents[0].eventType,
+												START_TIME: storedEvents[0].startTime,
+												EXCHANGES: JSON.stringify(storedEvents[0].exchanges)
+											})
+											clusterMap[worker.id] = storedEvents[0]._id.toString()
+										}
+									)
+								} else {
+									timeGap = moment.duration(5, "minutes")
+
+									for (let event of storedEvents) {
+										schedule.scheduleJob(
+											moment(event.startTime)
+												.subtract(timeGap)
+												.format(),
+											() => {
+												cluster.fork({
+													OBJECT_ID: event._id.toString(),
+													COUNTRY: event.country,
+													EVENT_TYPE: event.eventType,
+													START_TIME: event.startTime,
+													EXCHANGES: JSON.stringify(event.exchanges)
+												})
+												clusterMap[worker.id] = event._id.toString()
+											}
+										)
+									}
 								}
 							} else {
 								console.log("No events")

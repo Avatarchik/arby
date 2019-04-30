@@ -1,10 +1,18 @@
+function getCountry(matchedEvent) {
+	const meaningfulCountry = matchedEvent.find(exEvent => {
+		return exEvent.event.country !== "-"
+	})
+
+	return (meaningfulCountry && meaningfulCountry.country) || "-"
+}
+
 exports.storeMatchedEvents = async function(matchedEvents, db) {
-	await db.collection("events").insertMany(
+	const inserted = await db.collection("events").insertMany(
 		matchedEvents.map(matchedEvent => {
 			return {
 				startTime: matchedEvent[0].event.startTime,
 				eventType: matchedEvent[0].event.eventType,
-				country: matchedEvent.find(exEvent => exEvent.event.country !== "-").event.country,
+				country: getCountry(matchedEvent),
 				exchanges: matchedEvent.map(exEvent => {
 					return {
 						exchange: exEvent.exchange,
@@ -57,7 +65,7 @@ exports.setDefaults = async function(db) {
 }
 
 exports.setExchangeBalance = async function(db, balance, exchange) {
-	await db.collection("config").updateOne(
+	return await db.collection("config").updateOne(
 		{
 			sportsToUse: {
 				$exists: true
@@ -72,12 +80,12 @@ exports.setExchangeBalance = async function(db, balance, exchange) {
 }
 
 exports.getConfig = async function(db) {
-	await db
+	return await db
 		.collection("config")
 		.find({
 			sportsToUse: {
 				$exists: true
 			}
 		})
-		.toArray()[0]
+		.toArray()
 }

@@ -11,7 +11,9 @@ const { MongoClient } = require("mongodb")
 // }
 
 module.exports = async function() {
-	const client = await MongoClient.connect(process.env.DB_URL)
+	const client = await MongoClient.connect(process.env.DB_URL, {
+		useNewUrlParser: true
+	})
 
 	return client.db(process.env.DB_NAME)
 }
