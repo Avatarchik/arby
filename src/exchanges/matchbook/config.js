@@ -14,7 +14,8 @@ module.exports = class MatchbookConfig {
 			baseURL: `https://${process.env.MATCHBOOK_ENDPOINT}`,
 			headers: {
 				Accept: "application/json",
-				"Content-Type": "application/json"
+				"Content-Type": "application/json",
+				...(process.env.MATCHBOOK_SESSIONTOKEN && { "session-token": process.env.MATCHBOOK_SESSIONTOKEN })
 			},
 			transformRequest: [
 				function(data, headers) {

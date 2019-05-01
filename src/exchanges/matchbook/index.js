@@ -5,7 +5,6 @@ const { getCode, overwrite } = require("country-list")
 const BettingApi = require("./apis/betting")
 const AccountsApi = require("./apis/account")
 const MatchbookConfig = require("./config")
-const { buildFormattedEvents } = require("./format")
 const { setExchangeBalance, getConfig } = require("../../db/helpers")
 const countryListOverrides = require("../../../lib/country-list-overrides")
 
@@ -90,19 +89,6 @@ async function getSportIds(sports, db) {
 		.map(sport => sport.id)
 }
 
-function getCountryCode(event, tag) {
-	if (!tag) {
-		return "-"
-	}
-
-	const countryCode = getCode(tag.name)
-
-	if (!countryCode) {
-		return "-"
-	}
-	return countryCode
-}
-
 exports.matchbookInit = async function(db) {
 	const matchbookInstance = new MatchbookConfig()
 
@@ -133,7 +119,7 @@ exports.matchbookInit = async function(db) {
 				name: event.name || "-",
 				startTime: event.start,
 				eventType: eventTypeTag ? eventTypeTag.name : "-",
-				country: getCountryCode(event, countryTag)
+				country: countryTag ? getCode(countryTag.name) || "-" : "-"
 			}
 		})
 	} catch (err) {

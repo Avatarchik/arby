@@ -3,7 +3,10 @@ const { MongoClient } = require("mongodb")
 const schedule = require("node-schedule")
 const cluster = require("cluster")
 
-const BettingApi = require("../../exchanges/betfair/apis/betting")
+const BetfairBettingApi = require("../../exchanges/betfair/apis/betting")
+const MatchbookBettingApi = require("../../exchanges/matchbook/apis/betting")
+const BetfairConfig = require("../../exchanges/betfair/config")
+const MatchbookConfig = require("../../exchanges/matchbook/config")
 const AccountsApi = require("../../exchanges/betfair/apis/account")
 const { getConfig } = require("../../db/helpers")
 const { checkForException, getException } = require("../../exchanges/betfair/exceptions")
@@ -25,6 +28,9 @@ const BETTING = "Betting"
 const ACCOUNT = "Account"
 
 const ArbTable = require("../../../lib/arb-table")
+
+let matchbookInstance
+let betfairInstance
 
 function getExchangesToCompare_findEvents(exchanges, exchangeBeingChecked) {
 	return exchanges.filter(exchange => {
@@ -774,117 +780,4 @@ exports.initArbitrage = async function(exchangesEvents) {
 	} catch (err) {
 		console.error(err)
 	}
-}
-
-async function getMarketCatalogues(db, bettingApi) {
-	const type = BETTING
-	const funcName = getMarketCatalogues.name
-
-	let params = {
-		filter: {
-			eventIds: [
-				JSON.parse(process.env.EXCHANGES)
-					.find(exchange => {
-						return exchange.name === "betfair"
-					})
-					.id.toString()
-			]
-		},
-		marketProjection: [
-			MarketProjection.EVENT_TYPE.val,
-			MarketProjection.EVENT.val,
-			MarketProjection.MARKET_START_TIME.val,
-			MarketProjection.MARKET_DESCRIPTION.val,
-			MarketProjection.RUNNER_DESCRIPTION.val
-		],
-		maxResults: 1000
-	}
-	let response
-	let config
-
-	try {
-		config = await getConfig(db)
-		params.filter.marketBettingTypes = [
-			...(config[0].betOnOdds ? [MarketBettingType.ODDS.val] : []),
-			...(config[0].betOnSpread ? [MarketBettingType.LINE.val] : []),
-			...(config[0].betOnAsianHandicapSingleLine ? [MarketBettingType.ASIAN_HANDICAP_SINGLE_LINE.val] : []),
-			...(config[0].betOnAsianHandicapDoubleLine ? [MarketBettingType.ASIAN_HANDICAP_DOUBLE_LINE.val] : [])
-		]
-
-		response = await bettingApi.listMarketCatalogue(params)
-
-		checkForException(response, BettingOperations.LIST_MARKET_CATALOGUE, type)
-
-		return response.data.result
-	} catch (err) {
-		switch (err.code) {
-			case "TOO_MUCH_DATA":
-				return getMarketCatalogues(db)
-			default:
-				throw getException({
-					err,
-					params,
-					type,
-					funcName
-				})
-		}
-	}
-}
-
-async function getMarketBooks(db, catalogues, bettingApi) {
-	const type = BETTING
-	const funcName = getMarketBooks.name
-
-	const params = {
-		marketIds: catalogues.map(catalogue => catalogue.marketId),
-		priceProjection: {
-			priceData: [PriceData.EX_BEST_OFFERS.val]
-		},
-		orderProjection: OrderProjection.EXECUTABLE.val,
-		matchProjection: MatchProjection.ROLLED_UP_BY_AVG_PRICE.val
-	}
-	let response
-
-	try {
-		response = await bettingApi.listMarketBook(params)
-
-		checkForException(response, BettingOperations.LIST_MARKET_BOOK, type)
-		return response.data.result
-	} catch (err) {
-		throw getException({
-			err,
-			params,
-			type,
-			funcName
-		})
-	}
-}
-
-const getMarketFuncs = {
-	getMarkets_matchbook,
-	getMarkets_betfair
-}
-
-async function getMarkets_betfair(db) {
-	const bettingApi = new BettingApi()
-	const marketCatalogues = await getMarketCatalogues(db, bettingApi)
-	const marketBooks = await getMarketBooks(db, marketCatalogues, bettingApi)
-}
-
-async function getMarkets_matchbook() {
-	console.log("here")
-}
-
-async function initInterval(exchanges, db) {
-	await Promise.all(
-		exchanges.map(async exchangeName => {
-			await getMarketFuncs[`getMarkets_${exchangeName}`](db)
-		}, this)
-	)
-}
-
-exports.watchEvent = function(db) {
-	const exchangesInvolved = JSON.parse(process.env.EXCHANGES).map(ex => ex.exchange)
-
-	setInterval(initInterval.bind(this)(exchangesInvolved, db), 300000) // Poll the exchanges every 5 minutes
 }

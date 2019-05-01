@@ -16,7 +16,8 @@ module.exports = class BetfairConfig {
 			headers: {
 				Accept: "application/json",
 				"X-Application": process.env.BETFAIR_APP_KEY_DELAY,
-				"Content-Type": "application/json"
+				"Content-Type": "application/json",
+				...(process.env.BETFAIR_SESSIONTOKEN && { "X-Authentication": process.env.BETFAIR_SESSIONTOKEN })
 			},
 			transformRequest: [
 				function(data, headers) {

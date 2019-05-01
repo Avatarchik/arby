@@ -36,9 +36,38 @@ function filterEventsMatchingCriteria(compareEx, eventToCheck) {
 }
 
 function getExchangesToCompare_findEvents(exchanges, exchangeBeingChecked) {
-	return exchanges.filter(exchange => {
-		return exchange.name !== exchangeBeingChecked.name
+	return exchanges.filter(ex => {
+		return ex.exchange !== exchangeBeingChecked.exchange
 	})
+}
+
+function checkHandicapsAreSame(market1, market2) {
+	// I did it this way to guarentee iteration order although you may find better ways down the line I assume...
+	for (let i = 0; i < market1.runners.length; i++) {
+		if (market1.runners[i].handicap !== market2.runners[i].handicap) {
+			return false
+		}
+	}
+	return true
+}
+
+function checkNumberAreSame(market1Name, market2Name) {
+	return parseInt(market1Name.replace(/[^0-9\.]+/g, "")) === parseInt(market2Name.replace(/[^0-9\.]+/g, ""))
+}
+
+function getMarketsOfSameType(exchangeToCompare, market) {
+	return exchangeToCompare.markets.filter(marketToCompare => {
+		return market.type === marketToCompare.type && market.runners.length === marketToCompare.runners.length
+	})
+}
+
+function getExchangesToCompare_findMarkets(matchedEvent, exCheckName) {
+	return Object.keys(matchedEvent).reduce((acc, exCompareName) => {
+		if (exCompareName !== exCheckName) {
+			acc[exCompareName] = matchedEvent[exCompareName]
+		}
+		return acc
+	}, {})
 }
 
 exports.findSameEvents = function(exchanges) {
@@ -59,7 +88,7 @@ exports.findSameEvents = function(exchanges) {
 				for (let eventToCheck of exchangeToCheck.events) {
 					eventMatch = [
 						{
-							exchange: exchangeToCheck.name,
+							exchange: exchangeToCheck.exchange,
 							event: eventToCheck
 						}
 					]
@@ -85,7 +114,7 @@ exports.findSameEvents = function(exchanges) {
 									})
 
 									eventMatch.push({
-										exchange: exchangeToCompare.name,
+										exchange: exchangeToCompare.exchange,
 										event: matchingEvent
 									})
 									exchangeToCompare.events = exchangeToCompare.events.filter(event => event.id !== matchingEvent.id)
@@ -110,4 +139,92 @@ exports.findSameEvents = function(exchanges) {
 	} catch (err) {
 		console.error(err)
 	}
+}
+
+function findSameMarket(potentialMarkets, market, threshold) {
+	let compareMarkets
+	let bestMatchedMarket
+	let matchingMarket
+	let sameHandicap
+	let sameNumber
+
+	if (!potentialMarkets.length) {
+		// No match :(
+		return
+	}
+	compareMarkets = potentialMarkets.map(compareMarket => compareMarket.name.toUpperCase())
+	bestMatchedMarket = findBestMatch(market.name.toUpperCase(), compareMarkets)
+
+	if (bestMatchedMarket.bestMatch.rating <= threshold) {
+		return findSameMarket(
+			potentialMarkets.filter(market => {
+				return market.name.toUpperCase() !== bestMatchedMarket.bestMatch.target.toUpperCase()
+			}),
+			market,
+			threshold
+		)
+	}
+	matchingMarket = potentialMarkets.find(market => market.name.toUpperCase() === bestMatchedMarket.bestMatch.target)
+
+	if (market.type.includes("ASIAN_HANDICAP")) {
+		sameHandicap = checkHandicapsAreSame(market, matchingMarket)
+	} else if (market.name.toUpperCase().includes("OVER/UNDER")) {
+		sameNumber = checkNumberAreSame(market.name, matchingMarket.name)
+	}
+
+	if (sameNumber === false || sameHandicap === false) {
+		return findSameMarket(
+			potentialMarkets.filter(market => {
+				return market.name.toUpperCase() !== matchingMarket.name.toUpperCase()
+			}),
+			market,
+			threshold
+		)
+	}
+	// console.log(`"${market.name}" matched with "${bestMatchedMarket.bestMatch.target}" @ ${bestMatchedMarket.bestMatch.rating}`)
+	return matchingMarket
+}
+
+exports.findSameMarkets = function(markets) {
+	let marketsOfSameType
+	let sameMarket
+	let exchangesToCompare
+	let marketMatch
+
+	return Object.keys(matchedEvent).reduce((matches, exCheckName) => {
+		for (let exCheckMarket of matchedEvent[exCheckName].markets) {
+			marketMatch = {
+				[exCheckName]: exCheckMarket
+			}
+			exchangesToCompare = getExchangesToCompare_findMarkets(matchedEvent, exCheckName)
+
+			if (Object.keys(exchangesToCompare).length) {
+				for (let exCompare in exchangesToCompare) {
+					marketsOfSameType = getMarketsOfSameType(exchangesToCompare[exCompare], exCheckMarket)
+
+					if (marketsOfSameType.length) {
+						if (exCheckMarket.name === "Set Betting" || exCheckMarket.name === "WIN" || exCheckMarket.name === "Series Winner") {
+							console.log("debug")
+						}
+						sameMarket = findSameMarket(marketsOfSameType, exCheckMarket, similarityThreshold)
+
+						if (sameMarket) {
+							marketMatch[exCompare] = sameMarket
+
+							matchedEvent[exCheckName].markets = matchedEvent[exCheckName].markets.filter(market => {
+								return market.id !== exCheckMarket.id
+							})
+							matchedEvent[exCompare].markets = matchedEvent[exCompare].markets.filter(market => {
+								return market.id !== sameMarket.id
+							})
+						}
+					}
+				}
+				if (Object.keys(marketMatch).length > 1) {
+					matches.push(marketMatch)
+				}
+			}
+		}
+		return matches
+	}, [])
 }
